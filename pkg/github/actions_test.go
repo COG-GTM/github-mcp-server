@@ -346,7 +346,7 @@ func Test_CancelWorkflowRun(t *testing.T) {
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: ErrMissingRequiredParameterRunIDColon,
 		},
 	}
 
@@ -473,7 +473,7 @@ func Test_ListWorkflowRunArtifacts(t *testing.T) {
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: ErrMissingRequiredParameterRunIDColon,
 		},
 	}
 
@@ -643,7 +643,7 @@ func Test_DeleteWorkflowRunLogs(t *testing.T) {
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: ErrMissingRequiredParameterRunIDColon,
 		},
 	}
 
@@ -744,7 +744,7 @@ func Test_GetWorkflowRunUsage(t *testing.T) {
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: ErrMissingRequiredParameterRunIDColon,
 		},
 	}
 
