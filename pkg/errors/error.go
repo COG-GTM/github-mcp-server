@@ -2,6 +2,7 @@ package errors
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/go-github/v72/github"
@@ -75,7 +76,7 @@ func GetGitHubAPIErrors(ctx context.Context) ([]*GitHubAPIError, error) {
 	if val, ok := ctx.Value(GitHubErrorKey{}).(*GitHubCtxErrors); ok {
 		return val.api, nil // return the slice of API errors from the context
 	}
-	return nil, fmt.Errorf(ErrContextDoesNotContainGitHubCtxErrors)
+	return nil, errors.New(ErrContextDoesNotContainGitHubCtxErrors)
 }
 
 // GetGitHubGraphQLErrors retrieves the slice of GitHubGraphQLErrors from the context.
@@ -83,7 +84,7 @@ func GetGitHubGraphQLErrors(ctx context.Context) ([]*GitHubGraphQLError, error) 
 	if val, ok := ctx.Value(GitHubErrorKey{}).(*GitHubCtxErrors); ok {
 		return val.graphQL, nil // return the slice of GraphQL errors from the context
 	}
-	return nil, fmt.Errorf(ErrContextDoesNotContainGitHubCtxErrors)
+	return nil, errors.New(ErrContextDoesNotContainGitHubCtxErrors)
 }
 
 func NewGitHubAPIErrorToCtx(ctx context.Context, message string, resp *github.Response, err error) (context.Context, error) {
@@ -99,7 +100,7 @@ func addGitHubAPIErrorToContext(ctx context.Context, err *GitHubAPIError) (conte
 		val.api = append(val.api, err) // append the error to the existing slice in the context
 		return ctx, nil
 	}
-	return nil, fmt.Errorf(ErrContextDoesNotContainGitHubCtxErrors)
+	return nil, errors.New(ErrContextDoesNotContainGitHubCtxErrors)
 }
 
 func addGitHubGraphQLErrorToContext(ctx context.Context, err *GitHubGraphQLError) (context.Context, error) {
@@ -107,7 +108,7 @@ func addGitHubGraphQLErrorToContext(ctx context.Context, err *GitHubGraphQLError
 		val.graphQL = append(val.graphQL, err) // append the error to the existing slice in the context
 		return ctx, nil
 	}
-	return nil, fmt.Errorf(ErrContextDoesNotContainGitHubCtxErrors)
+	return nil, errors.New(ErrContextDoesNotContainGitHubCtxErrors)
 }
 
 // NewGitHubAPIErrorResponse returns an mcp.NewToolResultError and retains the error in the context for access via middleware

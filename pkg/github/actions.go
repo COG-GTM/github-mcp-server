@@ -16,7 +16,6 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
-
 // ListWorkflows creates a tool to list workflows in a repository
 func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_workflows",
@@ -1224,6 +1223,7 @@ func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelper
 			return mcp.NewToolResultText(string(r)), nil
 		}
 }
+
 type jobLogsParams struct {
 	owner         string
 	repo          string

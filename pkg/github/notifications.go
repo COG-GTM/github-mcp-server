@@ -324,7 +324,7 @@ func executeNotificationSubscriptionAction(ctx context.Context, client *github.C
 		resp, err := client.Activity.DeleteThreadSubscription(ctx, params.notificationID)
 		return nil, resp, err
 	default:
-		return nil, nil, fmt.Errorf("Invalid action. Must be one of: ignore, watch, delete")
+		return nil, nil, fmt.Errorf("invalid action. Must be one of: ignore, watch, delete")
 	}
 }
 
@@ -428,7 +428,7 @@ func executeRepositorySubscriptionAction(ctx context.Context, client *github.Cli
 		resp, err := client.Activity.DeleteRepositorySubscription(ctx, params.owner, params.repo)
 		return nil, resp, err
 	default:
-		return nil, nil, fmt.Errorf("Invalid action. Must be one of: ignore, watch, delete")
+		return nil, nil, fmt.Errorf("invalid action. Must be one of: ignore, watch, delete")
 	}
 }
 
@@ -497,6 +497,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 			return handleRepositorySubscriptionResponse(params, result, resp)
 		}
 }
+
 type listNotificationsParams struct {
 	filter           string
 	since            string
