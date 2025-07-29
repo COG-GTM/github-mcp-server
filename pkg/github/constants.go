@@ -7,6 +7,7 @@ const (
 	ErrFailedToReadResponseBody       = "failed to read response body: %w"
 	ErrFailedToGetPullRequest         = "failed to get pull request"
 	ErrFailedToGetCommit              = "failed to get commit: %s"
+	ErrFailedToGetCommitWithSHA       = "failed to get commit: %s"
 	ErrFailedToCreateResourceURI      = "failed to create resource URI: %w"
 	ErrFailedToGetCurrentUser         = "failed to get current user"
 	ErrFailedToGetLatestReview        = "failed to get latest review for current user"

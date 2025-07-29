@@ -70,7 +70,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to get commit: %s", sha),
+					fmt.Sprintf(ErrFailedToGetCommitWithSHA, sha),
 					resp,
 					err,
 				), nil
@@ -82,7 +82,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommitWithSHA, string(body))), nil
 			}
 
 			r, err := json.Marshal(commit)
@@ -816,7 +816,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommitWithSHA, string(body))), nil
 			}
 
 			// Create a tree entry for the file deletion by setting SHA to nil
