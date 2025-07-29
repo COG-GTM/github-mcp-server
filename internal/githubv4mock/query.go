@@ -56,8 +56,6 @@ func constructMutation(v any, variables map[string]any) string {
 //
 // E.g., map[string]any{"a": Int(123), "b": NewBoolean(true)} -> "$a:Int!$b:Boolean".
 func queryArguments(variables map[string]any) string {
-	// Sort keys in order to produce deterministic output for testing purposes.
-	// TODO: If tests can be made to work with non-deterministic output, then no need to sort.
 	keys := make([]string, 0, len(variables))
 	for k := range variables {
 		keys = append(keys, k)
