@@ -281,7 +281,7 @@ func Test_ManageNotificationSubscription(t *testing.T) {
 				assert.Contains(t, textContent.Text, "deleted")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
+				assert.Contains(t, textContent.Text, "invalid action")
 			}
 		})
 	}
@@ -444,7 +444,7 @@ func Test_ManageRepositoryNotificationSubscription(t *testing.T) {
 				assert.Contains(t, textContent.Text, "deleted")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
+				assert.Contains(t, textContent.Text, "invalid action")
 			}
 		})
 	}
