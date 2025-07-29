@@ -13,75 +13,56 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
-func executeDiscussionQueryWithCategory(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID githubv4.ID) ([]*github.Issue, error) {
-	var query struct {
-		Repository struct {
-			Discussions struct {
-				Nodes []struct {
-					Number    githubv4.Int
-					Title     githubv4.String
-					CreatedAt githubv4.DateTime
-					Category  struct {
-						Name githubv4.String
-					} `graphql:"category"`
-					URL githubv4.String `graphql:"url"`
-				}
-			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-		} `graphql:"repository(owner: $owner, name: $repo)"`
-	}
-	vars := map[string]interface{}{
-		"owner":      githubv4.String(owner),
-		"repo":       githubv4.String(repo),
-		"categoryId": categoryID,
-	}
-	if err := client.Query(ctx, &query, vars); err != nil {
-		return nil, err
-	}
-
-	var discussions []*github.Issue
-	for _, n := range query.Repository.Discussions.Nodes {
-		di := &github.Issue{
-			Number:    github.Ptr(int(n.Number)),
-			Title:     github.Ptr(string(n.Title)),
-			HTMLURL:   github.Ptr(string(n.URL)),
-			CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-			Labels: []*github.Label{
-				{
-					Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
-				},
-			},
-		}
-		discussions = append(discussions, di)
-	}
-	return discussions, nil
+type discussionNode struct {
+	Number    githubv4.Int
+	Title     githubv4.String
+	CreatedAt githubv4.DateTime
+	Category  struct {
+		Name githubv4.String
+	} `graphql:"category"`
+	URL githubv4.String `graphql:"url"`
 }
 
-func executeDiscussionQueryWithoutCategory(ctx context.Context, client *githubv4.Client, owner, repo string) ([]*github.Issue, error) {
-	var query struct {
-		Repository struct {
-			Discussions struct {
-				Nodes []struct {
-					Number    githubv4.Int
-					Title     githubv4.String
-					CreatedAt githubv4.DateTime
-					Category  struct {
-						Name githubv4.String
-					} `graphql:"category"`
-					URL githubv4.String `graphql:"url"`
-				}
-			} `graphql:"discussions(first: 100)"`
-		} `graphql:"repository(owner: $owner, name: $repo)"`
-	}
+func executeDiscussionQuery(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID *githubv4.ID) ([]*github.Issue, error) {
+	var nodes []discussionNode
 	vars := map[string]interface{}{
 		"owner": githubv4.String(owner),
 		"repo":  githubv4.String(repo),
 	}
-	if err := client.Query(ctx, &query, vars); err != nil {
-		return nil, err
+
+	if categoryID != nil {
+		var query struct {
+			Repository struct {
+				Discussions struct {
+					Nodes []discussionNode
+				} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+			} `graphql:"repository(owner: $owner, name: $repo)"`
+		}
+		vars["categoryId"] = *categoryID
+		if err := client.Query(ctx, &query, vars); err != nil {
+			return nil, err
+		}
+		nodes = query.Repository.Discussions.Nodes
+	} else {
+		var query struct {
+			Repository struct {
+				Discussions struct {
+					Nodes []discussionNode
+				} `graphql:"discussions(first: 100)"`
+			} `graphql:"repository(owner: $owner, name: $repo)"`
+		}
+		if err := client.Query(ctx, &query, vars); err != nil {
+			return nil, err
+		}
+		nodes = query.Repository.Discussions.Nodes
 	}
 
+	return convertDiscussionNodesToIssues(nodes), nil
+}
+
+func convertDiscussionNodesToIssues(nodes []discussionNode) []*github.Issue {
 	var discussions []*github.Issue
-	for _, n := range query.Repository.Discussions.Nodes {
+	for _, n := range nodes {
 		di := &github.Issue{
 			Number:    github.Ptr(int(n.Number)),
 			Title:     github.Ptr(string(n.Title)),
@@ -95,7 +76,7 @@ func executeDiscussionQueryWithoutCategory(ctx context.Context, client *githubv4
 		}
 		discussions = append(discussions, di)
 	}
-	return discussions, nil
+	return discussions
 }
 
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -147,13 +128,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			}
 
 			// Now execute the discussions query
-			var discussions []*github.Issue
-			var queryErr error
-			if categoryID != nil {
-				discussions, queryErr = executeDiscussionQueryWithCategory(ctx, client, owner, repo, *categoryID)
-			} else {
-				discussions, queryErr = executeDiscussionQueryWithoutCategory(ctx, client, owner, repo)
-			}
+			discussions, queryErr := executeDiscussionQuery(ctx, client, owner, repo, categoryID)
 			if queryErr != nil {
 				return mcp.NewToolResultError(queryErr.Error()), nil
 			}
