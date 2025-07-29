@@ -109,7 +109,7 @@ var (
 			// Check if the required global flag is provided
 			serverCmd, _ := cmd.Flags().GetString("stdio-server-cmd")
 			if serverCmd == "" {
-				return fmt.Errorf("--stdio-server-cmd is required")
+				return fmt.Errorf("--%s is required", "stdio-server-cmd")
 			}
 			return nil
 		},
@@ -119,11 +119,11 @@ var (
 	schemaCmd = &cobra.Command{
 		Use:   "schema",
 		Short: "Fetch schema from MCP server",
-		Long:  "Fetches the tools schema from the MCP server specified by --stdio-server-cmd",
+		Long:  "Fetches the tools schema from the MCP server specified by --" + "stdio-server-cmd",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			serverCmd, _ := cmd.Flags().GetString("stdio-server-cmd")
 			if serverCmd == "" {
-				return fmt.Errorf("--stdio-server-cmd is required")
+				return fmt.Errorf("--%s is required", "stdio-server-cmd")
 			}
 
 			// Build the JSON-RPC request for tools/list
@@ -224,7 +224,7 @@ func addCommandFromTool(toolsCmd *cobra.Command, tool *Tool, prettyPrint bool) {
 			// Execute the server command
 			serverCmd, err := cmd.Flags().GetString("stdio-server-cmd")
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to get stdio-server-cmd: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "failed to get %s: %v\n", "stdio-server-cmd", err)
 				return
 			}
 			response, err := executeServerCommand(serverCmd, jsonData)

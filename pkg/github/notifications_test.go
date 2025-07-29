@@ -281,7 +281,7 @@ func Test_ManageNotificationSubscription(t *testing.T) {
 				assert.Contains(t, textContent.Text, "deleted")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
+				assert.Contains(t, textContent.Text, "invalid action")
 			}
 		})
 	}
@@ -444,7 +444,7 @@ func Test_ManageRepositoryNotificationSubscription(t *testing.T) {
 				assert.Contains(t, textContent.Text, "deleted")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
+				assert.Contains(t, textContent.Text, "invalid action")
 			}
 		})
 	}
@@ -503,7 +503,7 @@ func Test_DismissNotification(t *testing.T) {
 			expectDone:  true,
 		},
 		{
-			name:         "invalid threadID format",
+			name:         InvalidThreadIDFormat,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]interface{}{
 				"threadID": "notanumber",
@@ -556,8 +556,8 @@ func Test_DismissNotification(t *testing.T) {
 					assert.Contains(t, text, "missing required parameter: threadID")
 				case tc.requestArgs["state"] == nil:
 					assert.Contains(t, text, "missing required parameter: state")
-				case tc.name == "invalid threadID format":
-					assert.Contains(t, text, "invalid threadID format")
+				case tc.name == InvalidThreadIDFormat:
+					assert.Contains(t, text, InvalidThreadIDFormat)
 				case tc.name == "invalid state value":
 					assert.Contains(t, text, "Invalid state. Must be one of: read, done.")
 				default:
@@ -576,7 +576,7 @@ func Test_DismissNotification(t *testing.T) {
 				assert.Contains(t, textContent.Text, "Notification marked as done")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "invalid threadID format")
+				assert.Contains(t, textContent.Text, InvalidThreadIDFormat)
 			}
 		})
 	}

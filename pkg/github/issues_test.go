@@ -416,7 +416,7 @@ func Test_SearchIssues(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": InvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search issues",

@@ -113,7 +113,7 @@ func Test_SearchRepositories(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": InvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search repositories",
@@ -268,7 +268,7 @@ func Test_SearchCode(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"q": "invalid:query",
+				"q": InvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search code",
@@ -422,7 +422,7 @@ func Test_SearchUsers(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": InvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search users",
