@@ -45,4 +45,5 @@ const (
 	TestRepositoryContent = "# Test Repository\n\nThis is a test repository."
 	TestFileContent       = "# Test file"
 	DummySnapFilename     = "dummy.snap"
+	ApplicationJSONMimeType = "application/json"
 )

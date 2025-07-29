@@ -29,7 +29,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ImagePNGMimeType)
 						// as this is given as a png, it will return the content as a blob
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
@@ -45,7 +45,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ImagePNGMimeType)
 						// as this is given as a png, it will return the content as a blob
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
@@ -63,7 +63,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ImagePNGMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),
@@ -86,7 +86,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),
@@ -109,7 +109,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),
@@ -133,7 +133,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByTagByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),
@@ -157,7 +157,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoBySHAByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),
@@ -181,7 +181,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					mock.GetReposPullsByOwnerByRepoByPullNumber,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "application/json")
+						w.Header().Set(ContentTypeHeader, ApplicationJSONMimeType)
 						_, err := w.Write([]byte(`{"head": {"sha": "abc123"}}`))
 						require.NoError(t, err)
 					}),
@@ -189,7 +189,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoBySHAByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
 						require.NoError(t, err)
 					}),

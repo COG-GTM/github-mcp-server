@@ -592,7 +592,7 @@ func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, para
 		return nil, err
 	}
 
-	contentType := resp.Header.Get("Content-Type")
+	contentType := resp.Header.Get(ContentTypeHeader)
 	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
 		return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
 			URI:      resourceURI,

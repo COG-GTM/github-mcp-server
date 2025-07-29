@@ -147,7 +147,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			return nil, fmt.Errorf("failed to get raw content: %w", err)
 		case resp.StatusCode == http.StatusOK:
 			ext := filepath.Ext(path)
-			mimeType := resp.Header.Get("Content-Type")
+			mimeType := resp.Header.Get(ContentTypeHeader)
 			if ext == ".md" {
 				mimeType = "text/markdown"
 			} else if mimeType == "" {

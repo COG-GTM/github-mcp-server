@@ -72,7 +72,7 @@ func Test_GetFileContents(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
+						w.Header().Set(ContentTypeHeader, TextMarkdownMimeType)
 						_, _ = w.Write(mockRawContent)
 					}),
 				),
@@ -96,7 +96,7 @@ func Test_GetFileContents(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ImagePNGMimeType)
 						_, _ = w.Write(mockRawContent)
 					}),
 				),
