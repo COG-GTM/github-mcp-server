@@ -16,6 +16,11 @@ const (
 	ErrFailedToGetCurrentUser         = "failed to get current user"
 	ErrFailedToGetLatestReview        = "failed to get latest review for current user"
 	ErrContextDoesNotContainGitHubCtx = "context does not contain GitHubCtxErrors"
+	ErrResourceNotFound               = "resource not found"
+	ErrNotFound                       = "not found"
+	ErrMutationFailed                 = "mutation failed"
+	ErrMissingRequiredParameterRunID  = "missing required parameter run_id"
+	ErrMissingRequiredParameterRunIDColon = "missing required parameter: run_id"
 
 	DescRepositoryOwner             = "Repository owner"
 	DescRepositoryName              = "Repository name"
