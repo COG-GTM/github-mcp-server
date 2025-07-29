@@ -724,7 +724,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			r, err := json.Marshal(forkedRepo)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -900,7 +900,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			r, err := json.Marshal(response)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1001,7 +1001,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			r, err := json.Marshal(createdRef)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1173,7 +1173,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			r, err := json.Marshal(updatedRef)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1242,7 +1242,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			r, err := json.Marshal(tags)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1329,7 +1329,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 
 			r, err := json.Marshal(tagObj)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
