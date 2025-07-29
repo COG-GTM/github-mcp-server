@@ -36,6 +36,8 @@ var (
 	buildError error
 )
 
+const testFileContentTemplate = "Created by e2e test %s"
+
 // getE2EToken ensures the environment variable is checked only once and returns the token
 func getE2EToken(t *testing.T) string {
 	getTokenOnce.Do(func() {
@@ -482,7 +484,7 @@ func TestFileDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -514,7 +516,7 @@ func TestFileDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(testFileContentTemplate, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -671,7 +673,7 @@ func TestDirectoryDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-dir/test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -706,7 +708,7 @@ func TestDirectoryDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(testFileContentTemplate, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the directory containing the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -867,7 +869,7 @@ func TestRequestCopilotReview(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -1118,7 +1120,7 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -1278,7 +1280,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s\nwith multiple lines", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate+"\nwith multiple lines", t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -1523,7 +1525,7 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(testFileContentTemplate, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
