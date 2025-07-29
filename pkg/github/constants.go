@@ -46,4 +46,9 @@ const (
 	TestFileContent       = "# Test file"
 	DummySnapFilename     = "dummy.snap"
 	ApplicationJSONMimeType = "application/json"
+	
+	InvalidThreadIDFormat = "invalid threadID format"
+	DiscussionNotFound    = "discussion not found"
+	InvalidQuery          = "invalid:query"
+	TestDiscussionURL     = "https://github.com/owner/repo/discussions/1"
 )

@@ -750,7 +750,7 @@ func Test_SearchPullRequests(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": InvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search pull requests",
