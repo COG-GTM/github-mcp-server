@@ -894,7 +894,7 @@ func Test_GetPullRequestFiles(t *testing.T) {
 				"pullNumber": float64(999),
 			},
 			expectError:    true,
-			expectedErrMsg: "failed to get pull request files",
+			expectedErrMsg: ErrFailedToGetPullRequestFiles,
 		},
 	}
 
@@ -1309,7 +1309,7 @@ func Test_GetPullRequestComments(t *testing.T) {
 				"pullNumber": float64(999),
 			},
 			expectError:    true,
-			expectedErrMsg: "failed to get pull request comments",
+			expectedErrMsg: ErrFailedToGetPullRequestComments,
 		},
 	}
 

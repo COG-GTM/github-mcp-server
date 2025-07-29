@@ -629,7 +629,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request files",
+					ErrFailedToGetPullRequestFiles,
 					resp,
 					err,
 				), nil
@@ -868,7 +868,7 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 			comments, resp, err := client.PullRequests.ListComments(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request comments",
+					ErrFailedToGetPullRequestComments,
 					resp,
 					err,
 				), nil
@@ -934,7 +934,7 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 			reviews, resp, err := client.PullRequests.ListReviews(ctx, owner, repo, pullNumber, nil)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request reviews",
+					ErrFailedToGetPullRequestReviews,
 					resp,
 					err,
 				), nil
@@ -1616,7 +1616,7 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 			)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request diff",
+					ErrFailedToGetPullRequestDiff,
 					resp,
 					err,
 				), nil
