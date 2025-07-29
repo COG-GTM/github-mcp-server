@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,7 +22,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/shurcooL/githubv4"
-	"github.com/sirupsen/logrus"
 )
 
 type MCPServerConfig struct {
@@ -203,17 +203,23 @@ func RunStdioServer(cfg StdioServerConfig) error {
 
 	stdioServer := server.NewStdioServer(ghServer)
 
-	logrusLogger := logrus.New()
+	var slogLogger *slog.Logger
 	if cfg.LogFilePath != "" {
 		file, err := os.OpenFile(cfg.LogFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to open log file: %w", err)
 		}
 
-		logrusLogger.SetLevel(logrus.DebugLevel)
-		logrusLogger.SetOutput(file)
+		slogLogger = slog.New(slog.NewTextHandler(file, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+	} else {
+		slogLogger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
 	}
-	stdLogger := log.New(logrusLogger.Writer(), "stdioserver", 0)
+	
+	stdLogger := log.New(&slogWriter{logger: slogLogger}, "stdioserver", 0)
 	stdioServer.SetErrorLogger(stdLogger)
 
 	if cfg.ExportTranslations {
@@ -227,7 +233,7 @@ func RunStdioServer(cfg StdioServerConfig) error {
 		in, out := io.Reader(os.Stdin), io.Writer(os.Stdout)
 
 		if cfg.EnableCommandLogging {
-			loggedIO := mcplog.NewIOLogger(in, out, logrusLogger)
+			loggedIO := mcplog.NewIOLogger(in, out, slogLogger)
 			in, out = loggedIO, loggedIO
 		}
 		// enable GitHub errors in the context
@@ -241,7 +247,7 @@ func RunStdioServer(cfg StdioServerConfig) error {
 	// Wait for shutdown signal
 	select {
 	case <-ctx.Done():
-		logrusLogger.Infof("shutting down server...")
+		slogLogger.Info("shutting down server...")
 	case err := <-errC:
 		if err != nil {
 			return fmt.Errorf("error running server: %w", err)
@@ -405,4 +411,13 @@ func (t *bearerAuthTransport) RoundTrip(req *http.Request) (*http.Response, erro
 	req = req.Clone(req.Context())
 	req.Header.Set("Authorization", "Bearer "+t.token)
 	return t.transport.RoundTrip(req)
+}
+
+type slogWriter struct {
+	logger *slog.Logger
+}
+
+func (w *slogWriter) Write(p []byte) (n int, err error) {
+	w.logger.Info(string(p))
+	return len(p), nil
 }
