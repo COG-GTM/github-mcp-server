@@ -1,0 +1,38 @@
+package github
+
+const (
+	ErrFailedToGetGitHubClient        = "failed to get GitHub client: %w"
+	ErrFailedToGetGitHubGQLClient     = "failed to get GitHub GQL client: %v"
+	ErrFailedToMarshalResponse        = "failed to marshal response: %w"
+	ErrFailedToReadResponseBody       = "failed to read response body: %w"
+	ErrFailedToGetPullRequest         = "failed to get pull request"
+	ErrFailedToGetCommit              = "failed to get commit: %s"
+	ErrFailedToCreateResourceURI      = "failed to create resource URI: %w"
+	ErrFailedToGetCurrentUser         = "failed to get current user"
+	ErrFailedToGetLatestReview        = "failed to get latest review for current user"
+	ErrContextDoesNotContainGitHubCtx = "context does not contain GitHubCtxErrors"
+
+	DescRepositoryOwner             = "Repository owner"
+	DescRepositoryName              = "Repository name"
+	DescNumberOfResultsPerPage      = "The number of results per page (max 100)"
+	DescPageNumberOfResults         = "The page number of the results to fetch"
+	DescUniqueIdentifierWorkflowRun = "The unique identifier of the workflow run"
+	DescSortOrder                   = "Sort order"
+
+	CategoryPrefix   = "category:%s"
+	RepoURIPrefix    = "repo://"
+	StdioServerCmd   = "stdio-server-cmd"
+	ReadOnlyFlag     = "read-only"
+	CreatedByE2ETest = "Created by e2e test %s"
+	GitHubBaseURL    = "https://github.com"
+	NonExistent      = "non-existent"
+
+	ContentTypeHeader     = "Content-Type"
+	ImagePNGMimeType      = "image/png"
+	TextMarkdownMimeType  = "text/markdown"
+	TextPlainMimeType     = "text/plain"
+	ReadmeMDFilename      = "README.md"
+	TestRepositoryContent = "# Test Repository\n\nThis is a test repository."
+	TestFileContent       = "# Test file"
+	DummySnapFilename     = "dummy.snap"
+)

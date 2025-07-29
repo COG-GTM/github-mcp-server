@@ -65,7 +65,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
@@ -80,14 +80,14 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(commit)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -155,7 +155,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
 			if err != nil {
@@ -170,14 +170,14 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(commits)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -225,7 +225,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			branches, resp, err := client.Repositories.ListBranches(ctx, owner, repo, opts)
@@ -241,14 +241,14 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(branches)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -339,7 +339,7 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			// Create or update the file
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			fileContent, resp, err := client.Repositories.CreateFile(ctx, owner, repo, path, opts)
 			if err != nil {
@@ -354,14 +354,14 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 && resp.StatusCode != 201 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create/update file: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(fileContent)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -417,7 +417,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			createdRepo, resp, err := client.Repositories.Create(ctx, "", repo)
 			if err != nil {
@@ -432,14 +432,14 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(createdRepo)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -474,144 +474,186 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			path, err := RequiredParam[string](request, "path")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			ref, err := OptionalParam[string](request, "ref")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := OptionalParam[string](request, "sha")
+			params, err := parseFileContentsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			rawOpts := &raw.ContentOpts{}
-
-			if strings.HasPrefix(ref, "refs/pull/") {
-				prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
-				if len(prNumber) > 0 {
-					// fetch the PR from the API to get the latest commit and use SHA
-					githubClient, err := getClient(ctx)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-					}
-					prNum, err := strconv.Atoi(prNumber)
-					if err != nil {
-						return nil, fmt.Errorf("invalid pull request number: %w", err)
-					}
-					pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get pull request: %w", err)
-					}
-					sha = pr.GetHead().GetSHA()
-					ref = ""
-				}
+			rawOpts, err := handlePullRequestRef(ctx, getClient, params)
+			if err != nil {
+				return nil, err
 			}
 
-			rawOpts.SHA = sha
-			rawOpts.Ref = ref
-
-			// If the path is (most likely) not to be a directory, we will first try to get the raw content from the GitHub raw content API.
-			if path != "" && !strings.HasSuffix(path, "/") {
-
-				rawClient, err := getRawClient(ctx)
+			if !strings.HasSuffix(params.Path, "/") {
+				result, err := tryGetRawContent(ctx, getRawClient, params, rawOpts)
 				if err != nil {
-					return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+					return mcp.NewToolResultError(err.Error()), nil
 				}
-				resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get raw repository content"), nil
-				}
-				defer func() {
-					_ = resp.Body.Close()
-				}()
-
-				if resp.StatusCode == http.StatusOK {
-					// If the raw content is found, return it directly
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return mcp.NewToolResultError("failed to read response body"), nil
-					}
-					contentType := resp.Header.Get("Content-Type")
-
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					}
-
-					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-						return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-							URI:      resourceURI,
-							Text:     string(body),
-							MIMEType: contentType,
-						}), nil
-					}
-
-					return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-						URI:      resourceURI,
-						Blob:     base64.StdEncoding.EncodeToString(body),
-						MIMEType: contentType,
-					}), nil
-
+				if result != nil {
+					return result, nil
 				}
 			}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return mcp.NewToolResultError("failed to get GitHub client"), nil
-			}
-
-			if sha != "" {
-				ref = sha
-			}
-			if strings.HasSuffix(path, "/") {
-				opts := &github.RepositoryContentGetOptions{Ref: ref}
-				_, dirContent, resp, err := client.Repositories.GetContents(ctx, owner, repo, path, opts)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get file contents"), nil
-				}
-				defer func() { _ = resp.Body.Close() }()
-
-				if resp.StatusCode != 200 {
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return mcp.NewToolResultError("failed to read response body"), nil
-					}
-					return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
-				}
-
-				r, err := json.Marshal(dirContent)
-				if err != nil {
-					return mcp.NewToolResultError("failed to marshal response"), nil
-				}
-				return mcp.NewToolResultText(string(r)), nil
-			}
-			return mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."), nil
+			return getDirectoryContents(ctx, getClient, params)
 		}
+}
+
+type fileContentsParams struct {
+	Owner string
+	Repo  string
+	Path  string
+	Ref   string
+	SHA   string
+}
+
+func parseFileContentsParams(request mcp.CallToolRequest) (*fileContentsParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	path, err := RequiredParam[string](request, "path")
+	if err != nil {
+		return nil, err
+	}
+	ref, err := OptionalParam[string](request, "ref")
+	if err != nil {
+		return nil, err
+	}
+	sha, err := OptionalParam[string](request, "sha")
+	if err != nil {
+		return nil, err
+	}
+
+	return &fileContentsParams{
+		Owner: owner,
+		Repo:  repo,
+		Path:  path,
+		Ref:   ref,
+		SHA:   sha,
+	}, nil
+}
+
+func handlePullRequestRef(ctx context.Context, getClient GetClientFn, params *fileContentsParams) (*raw.ContentOpts, error) {
+	rawOpts := &raw.ContentOpts{
+		SHA: params.SHA,
+		Ref: params.Ref,
+	}
+
+	if strings.HasPrefix(params.Ref, "refs/pull/") {
+		prNumber := strings.TrimSuffix(strings.TrimPrefix(params.Ref, "refs/pull/"), "/head")
+		if len(prNumber) > 0 {
+			githubClient, err := getClient(ctx)
+			if err != nil {
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+			}
+			prNum, err := strconv.Atoi(prNumber)
+			if err != nil {
+				return nil, fmt.Errorf("invalid pull request number: %w", err)
+			}
+			pr, _, err := githubClient.PullRequests.Get(ctx, params.Owner, params.Repo, prNum)
+			if err != nil {
+				return nil, fmt.Errorf(ErrFailedToGetPullRequest+": %w", err)
+			}
+			rawOpts.SHA = pr.GetHead().GetSHA()
+			rawOpts.Ref = ""
+		}
+	}
+
+	return rawOpts, nil
+}
+
+func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, params *fileContentsParams, rawOpts *raw.ContentOpts) (*mcp.CallToolResult, error) {
+	rawClient, err := getRawClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GitHub raw content client")
+	}
+
+	resp, err := rawClient.GetRawContent(ctx, params.Owner, params.Repo, params.Path, rawOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get raw repository content")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body")
+	}
+
+	resourceURI, err := buildResourceURI(params, rawOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
+		return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
+			URI:      resourceURI,
+			Text:     string(body),
+			MIMEType: contentType,
+		}), nil
+	}
+
+	return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
+		URI:      resourceURI,
+		Blob:     base64.StdEncoding.EncodeToString(body),
+		MIMEType: contentType,
+	}), nil
+}
+
+func buildResourceURI(params *fileContentsParams, rawOpts *raw.ContentOpts) (string, error) {
+	switch {
+	case rawOpts.SHA != "":
+		return url.JoinPath(RepoURIPrefix, params.Owner, params.Repo, "sha", rawOpts.SHA, "contents", params.Path)
+	case rawOpts.Ref != "":
+		return url.JoinPath(RepoURIPrefix, params.Owner, params.Repo, rawOpts.Ref, "contents", params.Path)
+	default:
+		return url.JoinPath(RepoURIPrefix, params.Owner, params.Repo, "contents", params.Path)
+	}
+}
+
+func getDirectoryContents(ctx context.Context, getClient GetClientFn, params *fileContentsParams) (*mcp.CallToolResult, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get GitHub client"), nil
+	}
+
+	ref := params.Ref
+	if params.SHA != "" {
+		ref = params.SHA
+	}
+
+	if !strings.HasSuffix(params.Path, "/") {
+		return mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."), nil
+	}
+
+	opts := &github.RepositoryContentGetOptions{Ref: ref}
+	_, dirContent, resp, err := client.Repositories.GetContents(ctx, params.Owner, params.Repo, params.Path, opts)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get file contents"), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return mcp.NewToolResultError("failed to read response body"), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
+	}
+
+	r, err := json.Marshal(dirContent)
+	if err != nil {
+		return mcp.NewToolResultError("failed to marshal response"), nil
+	}
+	return mcp.NewToolResultText(string(r)), nil
 }
 
 // ForkRepository creates a tool to fork a repository.
@@ -655,7 +697,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			forkedRepo, resp, err := client.Repositories.CreateFork(ctx, owner, repo, opts)
 			if err != nil {
@@ -675,7 +717,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			if resp.StatusCode != http.StatusAccepted {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to fork repository: %s", string(body))), nil
 			}
@@ -748,7 +790,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -772,7 +814,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
 			}
@@ -801,7 +843,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create tree: %s", string(body))), nil
 			}
@@ -825,7 +867,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create commit: %s", string(body))), nil
 			}
@@ -845,7 +887,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update reference: %s", string(body))), nil
 			}
@@ -909,7 +951,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Get the source branch SHA
@@ -1037,7 +1079,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -1177,7 +1219,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opts)
@@ -1193,7 +1235,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list tags: %s", string(body))), nil
 			}
@@ -1244,7 +1286,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// First get the tag reference
@@ -1261,7 +1303,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag reference: %s", string(body))), nil
 			}
@@ -1280,7 +1322,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag object: %s", string(body))), nil
 			}

@@ -54,7 +54,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
@@ -65,7 +65,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
 			}
@@ -128,7 +128,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
 			if err != nil {
@@ -139,14 +139,14 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(createdComment)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -188,7 +188,7 @@ func SearchIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (
 				),
 			),
 			mcp.WithString("order",
-				mcp.Description("Sort order"),
+				mcp.Description(DescSortOrder),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -295,7 +295,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
 			if err != nil {
@@ -306,18 +306,93 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(issue)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
 		}
+}
+
+type listIssuesParams struct {
+	owner string
+	repo  string
+}
+
+func parseListIssuesParams(request mcp.CallToolRequest) (*listIssuesParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	return &listIssuesParams{owner: owner, repo: repo}, nil
+}
+
+func buildIssueListOptions(request mcp.CallToolRequest) (*github.IssueListByRepoOptions, error) {
+	opts := &github.IssueListByRepoOptions{}
+
+	state, err := OptionalParam[string](request, "state")
+	if err != nil {
+		return nil, err
+	}
+	opts.State = state
+
+	labels, err := OptionalStringArrayParam(request, "labels")
+	if err != nil {
+		return nil, err
+	}
+	opts.Labels = labels
+
+	sort, err := OptionalParam[string](request, "sort")
+	if err != nil {
+		return nil, err
+	}
+	opts.Sort = sort
+
+	direction, err := OptionalParam[string](request, "direction")
+	if err != nil {
+		return nil, err
+	}
+	opts.Direction = direction
+
+	since, err := OptionalParam[string](request, "since")
+	if err != nil {
+		return nil, err
+	}
+	if since != "" {
+		timestamp, err := parseISOTimestamp(since)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list issues: %s", err.Error())
+		}
+		opts.Since = timestamp
+	}
+
+	if page, ok := request.GetArguments()["page"].(float64); ok {
+		opts.ListOptions.Page = int(page)
+	}
+
+	if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
+		opts.ListOptions.PerPage = int(perPage)
+	}
+
+	return opts, nil
+}
+
+func fetchIssues(ctx context.Context, getClient GetClientFn, params *listIssuesParams, opts *github.IssueListByRepoOptions) ([]*github.Issue, *github.Response, error) {
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+	}
+	return client.Issues.ListByRepo(ctx, params.owner, params.repo, opts)
 }
 
 // ListIssues creates a tool to list and filter repository issues
@@ -349,7 +424,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				),
 			),
 			mcp.WithString("sort",
-				mcp.Description("Sort order"),
+				mcp.Description(DescSortOrder),
 				mcp.Enum("created", "updated", "comments"),
 			),
 			mcp.WithString("direction",
@@ -362,64 +437,17 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			params, err := parseListIssuesParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			opts := &github.IssueListByRepoOptions{}
-
-			// Set optional parameters if provided
-			opts.State, err = OptionalParam[string](request, "state")
+			opts, err := buildIssueListOptions(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Get labels
-			opts.Labels, err = OptionalStringArrayParam(request, "labels")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Sort, err = OptionalParam[string](request, "sort")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Direction, err = OptionalParam[string](request, "direction")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			since, err := OptionalParam[string](request, "since")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if since != "" {
-				timestamp, err := parseISOTimestamp(since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", err.Error())), nil
-				}
-				opts.Since = timestamp
-			}
-
-			if page, ok := request.GetArguments()["page"].(float64); ok {
-				opts.ListOptions.Page = int(page)
-			}
-
-			if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
-				opts.ListOptions.PerPage = int(perPage)
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
+			issues, resp, err := fetchIssues(ctx, getClient, params, opts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to list issues: %w", err)
 			}
@@ -428,7 +456,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
 			}
@@ -563,7 +591,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
 			if err != nil {
@@ -574,14 +602,14 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(updatedIssue)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -646,7 +674,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
@@ -657,14 +685,14 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(comments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -744,7 +772,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Firstly, we try to find the copilot bot in the suggested actors for the repository.
