@@ -70,7 +70,7 @@ func init() {
 	// Add global flags that will be shared by all commands
 	rootCmd.PersistentFlags().StringSlice("toolsets", github.DefaultTools, "An optional comma separated list of groups of tools to allow, defaults to enabling all")
 	rootCmd.PersistentFlags().Bool("dynamic-toolsets", false, "Enable dynamic toolsets")
-	rootCmd.PersistentFlags().Bool(github.ReadOnlyFlag, false, "Restrict the server to read-only operations")
+	rootCmd.PersistentFlags().Bool(github.ReadOnlyFlag, false, "Restrict the server to "+github.ReadOnlyFlag+" operations")
 	rootCmd.PersistentFlags().String("log-file", "", "Path to log file")
 	rootCmd.PersistentFlags().Bool("enable-command-logging", false, "When enabled, the server will log all command requests and responses to the log file")
 	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
