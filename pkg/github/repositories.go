@@ -497,86 +497,21 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 			rawOpts := &raw.ContentOpts{}
 
-			if strings.HasPrefix(ref, "refs/pull/") {
-				prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
-				if len(prNumber) > 0 {
-					// fetch the PR from the API to get the latest commit and use SHA
-					githubClient, err := getClient(ctx)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-					}
-					prNum, err := strconv.Atoi(prNumber)
-					if err != nil {
-						return nil, fmt.Errorf("invalid pull request number: %w", err)
-					}
-					pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get pull request: %w", err)
-					}
-					sha = pr.GetHead().GetSHA()
-					ref = ""
-				}
+			sha, ref, err = handlePullRequestRef(ctx, getClient, owner, repo, ref, sha)
+			if err != nil {
+				return nil, err
 			}
 
 			rawOpts.SHA = sha
 			rawOpts.Ref = ref
 
-			// If the path is (most likely) not to be a directory, we will first try to get the raw content from the GitHub raw content API.
 			if path != "" && !strings.HasSuffix(path, "/") {
-
-				rawClient, err := getRawClient(ctx)
+				result, err := tryGetRawContent(ctx, getRawClient, owner, repo, path, rawOpts)
 				if err != nil {
-					return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+					return nil, err
 				}
-				resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get raw repository content"), nil
-				}
-				defer func() {
-					_ = resp.Body.Close()
-				}()
-
-				if resp.StatusCode == http.StatusOK {
-					// If the raw content is found, return it directly
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return mcp.NewToolResultError("failed to read response body"), nil
-					}
-					contentType := resp.Header.Get("Content-Type")
-
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					}
-
-					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-						return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-							URI:      resourceURI,
-							Text:     string(body),
-							MIMEType: contentType,
-						}), nil
-					}
-
-					return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-						URI:      resourceURI,
-						Blob:     base64.StdEncoding.EncodeToString(body),
-						MIMEType: contentType,
-					}), nil
-
+				if result != nil {
+					return result, nil
 				}
 			}
 
@@ -1292,4 +1227,84 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 
 			return mcp.NewToolResultText(string(r)), nil
 		}
+}
+
+func handlePullRequestRef(ctx context.Context, getClient GetClientFn, owner, repo, ref, sha string) (string, string, error) {
+	if strings.HasPrefix(ref, "refs/pull/") {
+		prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
+		if len(prNumber) > 0 {
+			githubClient, err := getClient(ctx)
+			if err != nil {
+				return "", "", fmt.Errorf("failed to get GitHub client: %w", err)
+			}
+			prNum, err := strconv.Atoi(prNumber)
+			if err != nil {
+				return "", "", fmt.Errorf("invalid pull request number: %w", err)
+			}
+			pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
+			if err != nil {
+				return "", "", fmt.Errorf("failed to get pull request: %w", err)
+			}
+			sha = pr.GetHead().GetSHA()
+			ref = ""
+		}
+	}
+	return sha, ref, nil
+}
+
+func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path string, rawOpts *raw.ContentOpts) (*mcp.CallToolResult, error) {
+	rawClient, err := getRawClient(ctx)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+	}
+	resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get raw repository content"), nil
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode == http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return mcp.NewToolResultError("failed to read response body"), nil
+		}
+		contentType := resp.Header.Get("Content-Type")
+
+		var resourceURI string
+		switch {
+		case rawOpts.SHA != "":
+			resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", rawOpts.SHA, "contents", path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create resource URI: %w", err)
+			}
+		case rawOpts.Ref != "":
+			resourceURI, err = url.JoinPath("repo://", owner, repo, rawOpts.Ref, "contents", path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create resource URI: %w", err)
+			}
+		default:
+			resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create resource URI: %w", err)
+			}
+		}
+
+		if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
+			return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
+				URI:      resourceURI,
+				Text:     string(body),
+				MIMEType: contentType,
+			}), nil
+		}
+
+		return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
+			URI:      resourceURI,
+			Blob:     base64.StdEncoding.EncodeToString(body),
+			MIMEType: contentType,
+		}), nil
+	}
+
+	return nil, nil
 }
