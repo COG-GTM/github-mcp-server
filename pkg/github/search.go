@@ -13,6 +13,88 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	errFailedToReadResponseBody = "failed to read response body: %w"
+	errFailedToMarshalResponse  = "failed to marshal response: %w"
+)
+
+type searchParams struct {
+	query      string
+	sort       string
+	order      string
+	pagination PaginationParams
+}
+
+func extractSearchParams(request mcp.CallToolRequest, queryParam string) (*searchParams, error) {
+	query, err := RequiredParam[string](request, queryParam)
+	if err != nil {
+		return nil, err
+	}
+
+	sort, err := OptionalParam[string](request, "sort")
+	if err != nil {
+		return nil, err
+	}
+
+	order, err := OptionalParam[string](request, "order")
+	if err != nil {
+		return nil, err
+	}
+
+	pagination, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &searchParams{
+		query:      query,
+		sort:       sort,
+		order:      order,
+		pagination: pagination,
+	}, nil
+}
+
+func buildSearchOptions(params *searchParams) *github.SearchOptions {
+	return &github.SearchOptions{
+		Sort:  params.sort,
+		Order: params.order,
+		ListOptions: github.ListOptions{
+			Page:    params.pagination.page,
+			PerPage: params.pagination.perPage,
+		},
+	}
+}
+
+func handleSearchAPIError(ctx context.Context, err error, resp *github.Response, operation, query string) (*mcp.CallToolResult, error) {
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx,
+			fmt.Sprintf("failed to %s with query '%s'", operation, query),
+			resp,
+			err,
+		), nil
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(errFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to %s: %s", operation, string(body))), nil
+	}
+
+	return nil, nil
+}
+
+func marshalSearchResult(result interface{}) (*mcp.CallToolResult, error) {
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("search_repositories",
@@ -28,19 +110,15 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			query, err := RequiredParam[string](request, "query")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
+			params, err := extractSearchParams(request, "query")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
 			opts := &github.SearchOptions{
 				ListOptions: github.ListOptions{
-					Page:    pagination.page,
-					PerPage: pagination.perPage,
+					Page:    params.pagination.page,
+					PerPage: params.pagination.perPage,
 				},
 			}
 
@@ -48,30 +126,15 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
-			result, resp, err := client.Search.Repositories(ctx, query, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to search repositories with query '%s'", query),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			result, resp, err := client.Search.Repositories(ctx, params.query, opts)
+			if errorResult, handleErr := handleSearchAPIError(ctx, err, resp, "search repositories", params.query); errorResult != nil || handleErr != nil {
+				if handleErr != nil {
+					return nil, handleErr
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
+				return errorResult, nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalSearchResult(result)
 		}
 }
 
@@ -97,61 +160,27 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			query, err := RequiredParam[string](request, "q")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sort, err := OptionalParam[string](request, "sort")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			order, err := OptionalParam[string](request, "order")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
+			params, err := extractSearchParams(request, "q")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			opts := &github.SearchOptions{
-				Sort:  sort,
-				Order: order,
-				ListOptions: github.ListOptions{
-					PerPage: pagination.perPage,
-					Page:    pagination.page,
-				},
-			}
+			opts := buildSearchOptions(params)
 
 			client, err := getClient(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 
-			result, resp, err := client.Search.Code(ctx, query, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to search code with query '%s'", query),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			result, resp, err := client.Search.Code(ctx, params.query, opts)
+			if errorResult, handleErr := handleSearchAPIError(ctx, err, resp, "search code", params.query); errorResult != nil || handleErr != nil {
+				if handleErr != nil {
+					return nil, handleErr
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
+				return errorResult, nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalSearchResult(result)
 		}
 }
 
@@ -170,54 +199,25 @@ type MinimalSearchUsersResult struct {
 
 func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		query, err := RequiredParam[string](request, "query")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		sort, err := OptionalParam[string](request, "sort")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		order, err := OptionalParam[string](request, "order")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		pagination, err := OptionalPaginationParams(request)
+		params, err := extractSearchParams(request, "query")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
-		opts := &github.SearchOptions{
-			Sort:  sort,
-			Order: order,
-			ListOptions: github.ListOptions{
-				PerPage: pagination.perPage,
-				Page:    pagination.page,
-			},
-		}
+		opts := buildSearchOptions(params)
 
 		client, err := getClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 		}
 
-		searchQuery := "type:" + accountType + " " + query
+		searchQuery := "type:" + accountType + " " + params.query
 		result, resp, err := client.Search.Users(ctx, searchQuery, opts)
-		if err != nil {
-			return ghErrors.NewGitHubAPIErrorResponse(ctx,
-				fmt.Sprintf("failed to search %ss with query '%s'", accountType, query),
-				resp,
-				err,
-			), nil
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode != 200 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+		if errorResult, handleErr := handleSearchAPIError(ctx, err, resp, fmt.Sprintf("search %ss", accountType), params.query); errorResult != nil || handleErr != nil {
+			if handleErr != nil {
+				return nil, handleErr
 			}
-			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
+			return errorResult, nil
 		}
 
 		minimalUsers := make([]MinimalUser, 0, len(result.Users))
@@ -249,11 +249,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			minimalResp.IncompleteResults = *result.IncompleteResults
 		}
 
-		r, err := json.Marshal(minimalResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal response: %w", err)
-		}
-		return mcp.NewToolResultText(string(r)), nil
+		return marshalSearchResult(minimalResp)
 	}
 }
 
