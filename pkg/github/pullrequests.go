@@ -1010,7 +1010,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(errFailedToGetGitHubGQLClient, err)), nil
 			}
 
 			var getPullRequestQuery struct {
@@ -1104,7 +1104,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(errFailedToGetGitHubGQLClient, err)), nil
 			}
 
 			var getPullRequestQuery struct {

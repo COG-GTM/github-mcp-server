@@ -199,7 +199,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		client, err := getClient(ctx)
 		if err != nil {
-				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
+			return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 		}
 
 		searchQuery := "type:" + accountType + " " + query
