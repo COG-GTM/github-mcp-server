@@ -964,6 +964,34 @@ export GITHUB_MCP_TOOL_ADD_ISSUE_COMMENT_DESCRIPTION="an alternative description
 </details>
 <!-- END AUTOMATED TOOLS -->
 
+## Code Quality
+
+This project maintains high code quality standards through automated analysis and continuous improvement.
+
+### Recent Improvements
+
+**SonarQube High Severity Issue Fixes (August 2025)**
+
+We recently addressed 4 High severity SonarQube issues to improve code maintainability and readability:
+
+#### String Duplication Fixes (go:S1192)
+- **discussions.go**: Added package-level constants to eliminate string duplication:
+  - `descRepositoryOwner` for "Repository owner" (used 4+ times)
+  - `descRepositoryName` for "Repository name" 
+  - `errFailedGQLClient` for "failed to get GitHub GQL client: %v" (used 4+ times)
+
+#### Cognitive Complexity Reduction (go:S3776)
+- **discussions.go**: Refactored `ListDiscussions` function (complexity 27→15) by extracting helper functions:
+  - `executeDiscussionsQueryWithCategory()` - handles GraphQL queries with category filter
+  - `executeDiscussionsQueryWithoutCategory()` - handles GraphQL queries without filter
+  - `mapDiscussionNodesToIssues()` - converts GraphQL nodes to GitHub Issue objects
+- **mcpcurl/main.go**: Refactored `main` function (complexity 18→15) by extracting helper functions:
+  - `setupRootCommand()` - configures CLI command structure
+  - `loadSchemaAndGenerateCommands()` - handles schema loading and command generation
+  - `executeRootCommand()` - executes the final command
+
+These improvements enhance code maintainability while preserving all existing functionality and passing comprehensive test suites.
+
 ## Library Usage
 
 The exported Go API of this module should currently be considered unstable, and subject to breaking changes. In the future, we may offer stability; please file an issue if there is a use case where this would be valuable.
