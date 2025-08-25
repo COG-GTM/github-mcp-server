@@ -226,13 +226,9 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			title, err := RequiredParam[string](request, "title")
 			if err != nil {
@@ -346,13 +342,9 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 
 			opts := &github.IssueListByRepoOptions{}
@@ -477,17 +469,9 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			issueNumber, err := RequiredInt(request, "issue_number")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, issueNumber, result := ValidateOwnerRepoIssue(request)
+			if result != nil {
+				return result, nil
 			}
 
 			// Create the issue request with only provided fields
@@ -600,17 +584,9 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			issueNumber, err := RequiredInt(request, "issue_number")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, issueNumber, result := ValidateOwnerRepoIssue(request)
+			if result != nil {
+				return result, nil
 			}
 			page, err := OptionalIntParamWithDefault(request, "page", 1)
 			if err != nil {
