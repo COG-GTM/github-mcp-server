@@ -350,6 +350,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			opts := &github.IssueListByRepoOptions{}
 
 			// Set optional parameters if provided
+			var err error
 			opts.State, err = OptionalParam[string](request, "state")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
