@@ -66,13 +66,28 @@ func ValidateOwnerRepoIssue(request mcp.CallToolRequest) (owner, repo string, is
 	if result != nil {
 		return "", "", 0, result
 	}
-	issueNumber, err := RequiredParam[int](request, "issue_number")
-	if err != nil {
-		issueNumber, err = RequiredParam[int](request, "issueNumber")
-		if err != nil {
-			return "", "", 0, mcp.NewToolResultError(err.Error())
+	
+	args := request.GetArguments()
+	if value, exists := args["issue_number"]; exists {
+		if intVal, ok := value.(int); ok {
+			issueNumber = intVal
+		} else if floatVal, ok := value.(float64); ok {
+			issueNumber = int(floatVal)
+		} else {
+			return "", "", 0, mcp.NewToolResultError("parameter issue_number has incorrect type")
 		}
+	} else if value, exists := args["issueNumber"]; exists {
+		if intVal, ok := value.(int); ok {
+			issueNumber = intVal
+		} else if floatVal, ok := value.(float64); ok {
+			issueNumber = int(floatVal)
+		} else {
+			return "", "", 0, mcp.NewToolResultError("parameter issueNumber has incorrect type")
+		}
+	} else {
+		return "", "", 0, mcp.NewToolResultError("missing required parameter: issue_number")
 	}
+	
 	return owner, repo, issueNumber, nil
 }
 
