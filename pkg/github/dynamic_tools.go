@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/github/github-mcp-server/pkg/toolsets"
@@ -84,12 +83,7 @@ func ListAvailableToolsets(toolsetGroup *toolsets.ToolsetGroup, t translations.T
 				}
 			}
 
-			r, err := json.Marshal(payload)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal features: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(payload)
 		}
 }
 
@@ -128,11 +122,6 @@ func GetToolsetsTools(toolsetGroup *toolsets.ToolsetGroup, t translations.Transl
 				payload = append(payload, tool)
 			}
 
-			r, err := json.Marshal(payload)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal features: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(payload)
 		}
 }

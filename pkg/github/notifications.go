@@ -462,13 +462,9 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, validationResult := ValidateOwnerRepo(request)
+			if validationResult != nil {
+				return validationResult, nil
 			}
 			action, err := RequiredParam[string](request, "action")
 			if err != nil {

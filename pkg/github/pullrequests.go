@@ -39,13 +39,9 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -122,13 +118,9 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			title, err := RequiredParam[string](request, "title")
 			if err != nil {
@@ -240,13 +232,9 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -364,13 +352,9 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			state, err := OptionalParam[string](request, "state")
 			if err != nil {
@@ -472,13 +456,9 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -506,7 +486,7 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
-			result, resp, err := client.PullRequests.Merge(ctx, owner, repo, pullNumber, commitMessage, options)
+			mergeResult, resp, err := client.PullRequests.Merge(ctx, owner, repo, pullNumber, commitMessage, options)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to merge pull request",
@@ -524,7 +504,7 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to merge pull request: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(mergeResult)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -601,13 +581,9 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -675,13 +651,9 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -763,13 +735,9 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -788,7 +756,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
-			result, resp, err := client.PullRequests.UpdateBranch(ctx, owner, repo, pullNumber, opts)
+			updateResult, resp, err := client.PullRequests.UpdateBranch(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
 				// Check if it's an acceptedError. An acceptedError indicates that the update is in progress,
 				// and it's not a real error.
@@ -811,7 +779,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request branch: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(updateResult)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -842,13 +810,9 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -914,13 +878,9 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -1661,14 +1621,9 @@ func RequestCopilotReview(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 
 			pullNumber, err := RequiredInt(request, "pullNumber")

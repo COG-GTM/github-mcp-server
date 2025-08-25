@@ -35,13 +35,9 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			alertNumber, err := RequiredInt(request, "alertNumber")
 			if err != nil {
@@ -112,13 +108,9 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			ref, err := OptionalParam[string](request, "ref")
 			if err != nil {

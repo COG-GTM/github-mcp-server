@@ -113,7 +113,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// fetch the PR from the API to get the latest commit and use SHA
 			githubClient, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 			prNum, err := strconv.Atoi(prNumber[0])
 			if err != nil {

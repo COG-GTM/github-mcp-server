@@ -41,13 +41,9 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			sha, err := RequiredParam[string](request, "sha")
 			if err != nil {
@@ -119,13 +115,9 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			sha, err := OptionalParam[string](request, "sha")
 			if err != nil {
@@ -203,13 +195,9 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
@@ -292,13 +280,9 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			path, err := RequiredParam[string](request, "path")
 			if err != nil {
@@ -474,13 +458,9 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			path, err := RequiredParam[string](request, "path")
 			if err != nil {
@@ -635,13 +615,9 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			org, err := OptionalParam[string](request, "organization")
 			if err != nil {
@@ -725,13 +701,9 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			path, err := RequiredParam[string](request, "path")
 			if err != nil {
@@ -890,13 +862,9 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			branch, err := RequiredParam[string](request, "branch")
 			if err != nil {
@@ -1012,13 +980,9 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			branch, err := RequiredParam[string](request, "branch")
 			if err != nil {
@@ -1157,13 +1121,9 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
@@ -1229,13 +1189,9 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			tag, err := RequiredParam[string](request, "tag")
 			if err != nil {
