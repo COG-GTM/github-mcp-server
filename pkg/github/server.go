@@ -60,31 +60,6 @@ func isAcceptedError(err error) bool {
 	return errors.As(err, &acceptedError)
 }
 
-// RequiredParam is a helper function that can be used to fetch a requested parameter from the request.
-// It does the following checks:
-// 1. Checks if the parameter is present in the request.
-// 2. Checks if the parameter is of the expected type.
-// 3. Checks if the parameter is not empty, i.e: non-zero value
-func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
-	var zero T
-
-	// Check if the parameter is present in the request
-	if _, ok := r.GetArguments()[p]; !ok {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
-	}
-
-	// Check if the parameter is of the expected type
-	val, ok := r.GetArguments()[p].(T)
-	if !ok {
-		return zero, fmt.Errorf("parameter %s is not of type %T", p, zero)
-	}
-
-	if val == zero {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
-	}
-
-	return val, nil
-}
 
 // RequiredInt is a helper function that can be used to fetch a requested parameter from the request.
 // It does the following checks:
