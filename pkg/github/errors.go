@@ -27,14 +27,69 @@ const (
 	errFailedToDownloadArtifact   = "failed to download artifact: %w"
 	errFailedToDeleteWorkflowRunLogs = "failed to delete workflow run logs: %w"
 	errFailedToGetWorkflowRunUsage   = "failed to get workflow run usage: %w"
-	
-	DescriptionRepositoryOwner = "Repository owner"
-	DescriptionRepositoryName  = "Repository name"
 )
 
 
 
 
+
+func RequiredParam[T any](request mcp.CallToolRequest, key string) (T, error) {
+	var zero T
+	args := request.GetArguments()
+	value, exists := args[key]
+	if !exists {
+		return zero, fmt.Errorf("missing required parameter: %s", key)
+	}
+	
+	typedValue, ok := value.(T)
+	if !ok {
+		return zero, fmt.Errorf("parameter %s has incorrect type", key)
+	}
+	
+	return typedValue, nil
+}
+
+func ValidateOwnerRepo(request mcp.CallToolRequest) (owner, repo string, result *mcp.CallToolResult) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	return owner, repo, nil
+}
+
+func ValidateOwnerRepoIssue(request mcp.CallToolRequest) (owner, repo string, issueNumber int, result *mcp.CallToolResult) {
+	owner, repo, result = ValidateOwnerRepo(request)
+	if result != nil {
+		return "", "", 0, result
+	}
+	issueNumber, err := RequiredParam[int](request, "issue_number")
+	if err != nil {
+		issueNumber, err = RequiredParam[int](request, "issueNumber")
+		if err != nil {
+			return "", "", 0, mcp.NewToolResultError(err.Error())
+		}
+	}
+	return owner, repo, issueNumber, nil
+}
+
+func ValidateOwnerRepoPR(request mcp.CallToolRequest) (owner, repo string, pullNumber int, result *mcp.CallToolResult) {
+	owner, repo, result = ValidateOwnerRepo(request)
+	if result != nil {
+		return "", "", 0, result
+	}
+	pullNumber, err := RequiredParam[int](request, "pull_number")
+	if err != nil {
+		pullNumber, err = RequiredParam[int](request, "pullNumber")
+		if err != nil {
+			return "", "", 0, mcp.NewToolResultError(err.Error())
+		}
+	}
+	return owner, repo, pullNumber, nil
+}
 
 func MarshalResponse(data interface{}) (*mcp.CallToolResult, error) {
 	result, err := json.Marshal(data)

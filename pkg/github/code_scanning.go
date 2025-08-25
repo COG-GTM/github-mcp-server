@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +13,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
-
 
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_code_scanning_alert",
@@ -50,7 +50,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
+				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 
 			alert, resp, err := client.CodeScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
@@ -71,7 +71,12 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
 			}
 
-			return MarshalResponse(alert)
+			r, err := json.Marshal(alert)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal alert: %w", err)
+			}
+
+			return mcp.NewToolResultText(string(r)), nil
 		}
 }
 
@@ -134,7 +139,7 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
+				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 			alerts, resp, err := client.CodeScanning.ListAlertsForRepo(ctx, owner, repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
 			if err != nil {
@@ -154,6 +159,11 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
 			}
 
-			return MarshalResponse(alerts)
+			r, err := json.Marshal(alerts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
+			}
+
+			return mcp.NewToolResultText(string(r)), nil
 		}
 }
