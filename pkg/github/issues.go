@@ -97,17 +97,9 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			issueNumber, err := RequiredInt(request, "issue_number")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, issueNumber, result := ValidateOwnerRepoIssue(request)
+			if result != nil {
+				return result, nil
 			}
 			body, err := RequiredParam[string](request, "body")
 			if err != nil {
