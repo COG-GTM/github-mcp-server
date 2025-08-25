@@ -45,13 +45,9 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 
 			// Get optional pagination parameters
@@ -165,13 +161,9 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			workflowID, err := RequiredParam[string](request, "workflow_id")
 			if err != nil {
@@ -267,13 +259,9 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			workflowID, err := RequiredParam[string](request, "workflow_id")
 			if err != nil {
@@ -318,7 +306,7 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			result := map[string]any{
+			response := map[string]any{
 				"message":       "Workflow run has been queued",
 				"workflow_type": workflowType,
 				"workflow_id":   workflowID,
@@ -328,7 +316,7 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				"status_code":   resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -359,13 +347,9 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -415,13 +399,9 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -442,7 +422,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			defer func() { _ = resp.Body.Close() }()
 
 			// Create response with the logs URL and information
-			result := map[string]any{
+			response := map[string]any{
 				"logs_url":         url.String(),
 				"message":          "Workflow run logs are available for download",
 				"note":             "The logs_url provides a download link for the complete workflow run logs as a ZIP archive. You can download this archive to extract and examine individual job logs.",
@@ -450,7 +430,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 				"optimization_tip": "Use: get_job_logs with parameters {run_id: " + fmt.Sprintf("%d", runID) + ", failed_only: true} for more efficient failed job debugging",
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -491,13 +471,9 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -590,13 +566,9 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 
 			// Get optional parameters
@@ -670,13 +642,13 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 	}
 
 	if len(failedJobs) == 0 {
-		result := map[string]any{
+			response := map[string]any{
 			"message":     "No failed jobs found in this workflow run",
 			"run_id":      runID,
 			"total_jobs":  len(jobs.Jobs),
 			"failed_jobs": 0,
 		}
-		r, _ := json.Marshal(result)
+		r, _ := json.Marshal(response)
 		return mcp.NewToolResultText(string(r)), nil
 	}
 
@@ -835,13 +807,9 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -860,14 +828,14 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			result := map[string]any{
+			response := map[string]any{
 				"message":     "Workflow run has been queued for re-run",
 				"run_id":      runID,
 				"status":      resp.Status,
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -898,13 +866,9 @@ func RerunFailedJobs(getClient GetClientFn, t translations.TranslationHelperFunc
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -923,14 +887,14 @@ func RerunFailedJobs(getClient GetClientFn, t translations.TranslationHelperFunc
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			result := map[string]any{
+			response := map[string]any{
 				"message":     "Failed jobs have been queued for re-run",
 				"run_id":      runID,
 				"status":      resp.Status,
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -961,13 +925,9 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -986,14 +946,14 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			result := map[string]any{
+			response := map[string]any{
 				"message":     "Workflow run has been cancelled",
 				"run_id":      runID,
 				"status":      resp.Status,
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -1030,13 +990,9 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -1102,13 +1058,9 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			artifactIDInt, err := RequiredInt(request, "artifact_id")
 			if err != nil {
@@ -1129,14 +1081,14 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 			defer func() { _ = resp.Body.Close() }()
 
 			// Create response with the download URL and information
-			result := map[string]any{
+			response := map[string]any{
 				"download_url": url.String(),
 				"message":      "Artifact is available for download",
 				"note":         "The download_url provides a download link for the artifact as a ZIP archive. The link is temporary and expires after a short time.",
 				"artifact_id":  artifactID,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -1168,13 +1120,9 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -1193,14 +1141,14 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			result := map[string]any{
+			response := map[string]any{
 				"message":     "Workflow run logs have been deleted",
 				"run_id":      runID,
 				"status":      resp.Status,
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
+			r, err := json.Marshal(response)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
@@ -1231,13 +1179,9 @@ func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelper
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, result := ValidateOwnerRepo(request)
+			if result != nil {
+				return result, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
