@@ -33,7 +33,7 @@ const (
 
 
 
-func RequiredParam[T any](request mcp.CallToolRequest, key string) (T, error) {
+func RequiredParam[T comparable](request mcp.CallToolRequest, key string) (T, error) {
 	var zero T
 	args := request.GetArguments()
 	value, exists := args[key]
@@ -44,6 +44,10 @@ func RequiredParam[T any](request mcp.CallToolRequest, key string) (T, error) {
 	typedValue, ok := value.(T)
 	if !ok {
 		return zero, fmt.Errorf("parameter %s has incorrect type", key)
+	}
+	
+	if typedValue == zero {
+		return zero, fmt.Errorf("missing required parameter: %s", key)
 	}
 	
 	return typedValue, nil
