@@ -422,7 +422,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}
@@ -518,7 +518,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}

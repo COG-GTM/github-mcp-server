@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -55,7 +54,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
@@ -71,12 +70,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(issue)
 		}
 }
 
@@ -145,12 +139,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(createdComment)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(createdComment)
 		}
 }
 
@@ -312,12 +301,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(issue)
 		}
 }
 
@@ -434,12 +418,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issues)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(issues)
 		}
 }
 
@@ -580,12 +559,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(updatedIssue)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(updatedIssue)
 		}
 }
 
@@ -647,7 +621,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
@@ -663,12 +637,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(comments)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(comments)
 		}
 }
 
@@ -745,7 +714,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
 			// Firstly, we try to find the copilot bot in the suggested actors for the repository.

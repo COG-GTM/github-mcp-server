@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -75,12 +74,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(pr)
 		}
 }
 
@@ -194,12 +188,7 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create pull request: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(pr)
 		}
 }
 
@@ -319,12 +308,7 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(pr)
 		}
 }
 
@@ -432,12 +416,7 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list pull requests: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(prs)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(prs)
 		}
 }
 
@@ -525,12 +504,7 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to merge pull request: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(result)
 		}
 }
 
@@ -645,12 +619,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(files)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(files)
 		}
 }
 
@@ -730,12 +699,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get combined status: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(status)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(status)
 		}
 }
 
@@ -812,12 +776,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request branch: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(result)
 		}
 }
 
@@ -884,12 +843,7 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request comments: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(comments)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(comments)
 		}
 }
 
@@ -950,12 +904,7 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request reviews: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(reviews)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(reviews)
 		}
 }
 

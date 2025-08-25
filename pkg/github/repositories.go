@@ -3,7 +3,6 @@ package github
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -86,12 +85,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(commit)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(commit)
 		}
 }
 
@@ -176,12 +170,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(commits)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(commits)
 		}
 }
 
@@ -247,12 +236,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(branches)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(branches)
 		}
 }
 
@@ -360,12 +344,7 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create/update file: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(fileContent)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(fileContent)
 		}
 }
 
@@ -438,12 +417,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(createdRepo)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(createdRepo)
 		}
 }
 
@@ -511,11 +485,7 @@ func processFileResponse(ctx context.Context, getRawClient raw.GetRawClientFn, f
 					"path":    fileContent.GetPath(),
 				}
 				
-				r, err := json.Marshal(result)
-				if err != nil {
-					return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-				}
-				return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(result)
 			}
 
 			rawClient, err := getRawClient(ctx)
@@ -547,15 +517,8 @@ func processFileResponse(ctx context.Context, getRawClient raw.GetRawClientFn, f
 				"type":    "file",
 				"content": string(content),
 				"size":    fileContent.GetSize(),
-				"sha":     fileContent.GetSHA(),
-				"path":    fileContent.GetPath(),
 			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(result)
 		}
 	}
 
@@ -576,11 +539,7 @@ func processFileResponse(ctx context.Context, getRawClient raw.GetRawClientFn, f
 			"items": items,
 		}
 
-		r, err := json.Marshal(result)
-		if err != nil {
-			return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-		}
-		return mcp.NewToolResultText(string(r)), nil
+	return MarshalResponse(result)
 	}
 
 	return mcp.NewToolResultError("unexpected response format"), nil
@@ -744,13 +703,9 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
 				}
 
-				r, err := json.Marshal(dirContent)
-				if err != nil {
-					return mcp.NewToolResultError("failed to marshal response"), nil
-				}
-				return mcp.NewToolResultText(string(r)), nil
-			}
-			return mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."), nil
+		return MarshalResponse(dirContent)
+		}
+		return mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."), nil
 		}
 }
 
@@ -820,12 +775,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 				return mcp.NewToolResultError(fmt.Sprintf("failed to fork repository: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(forkedRepo)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(forkedRepo)
 		}
 }
 
@@ -996,12 +946,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				"content": nil,
 			}
 
-			r, err := json.Marshal(response)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(response)
 		}
 }
 
@@ -1097,12 +1042,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(createdRef)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(createdRef)
 		}
 }
 
@@ -1269,12 +1209,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(updatedRef)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(updatedRef)
 		}
 }
 
@@ -1338,12 +1273,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list tags: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(tags)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(tags)
 		}
 }
 
@@ -1425,11 +1355,6 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag object: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(tagObj)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalResponse(tagObj)
 		}
 }

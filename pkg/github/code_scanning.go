@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,12 +71,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(alert)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(alert)
 		}
 }
 
@@ -160,11 +154,6 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(alerts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalResponse(alerts)
 		}
 }
