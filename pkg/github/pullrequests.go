@@ -1228,7 +1228,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "GitHub GQL client", err)
 			}
 
 			// First we'll get the current user
@@ -1365,7 +1365,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "GitHub GQL client", err)
 			}
 
 			// First we'll get the current user
@@ -1489,7 +1489,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "GitHub GQL client", err)
 			}
 
 			// First we'll get the current user

@@ -20,6 +20,16 @@ const (
 	ErrFailedToMarshalResponse  = "failed to marshal response: %w"
 	ErrFailedToGetGitHubClient  = "failed to get GitHub client: %w"
 	ErrFailedToReadResponseBody = "failed to read response body: %w"
+
+	ErrFailedToMarshal  = "failed to marshal %s: %w"
+	ErrFailedToGet      = "failed to get %s: %w"
+	ErrFailedToCreate   = "failed to create %s: %w"
+	ErrFailedToList     = "failed to list %s: %w"
+	ErrFailedToUpdate   = "failed to update %s: %w"
+	ErrFailedToRun      = "failed to run %s: %w"
+	ErrFailedToDownload = "failed to download %s: %w"
+	ErrFailedToRead     = "failed to read %s: %w"
+	ErrInvalidNumber    = "invalid %s number: %w"
 )
 
 const (
@@ -83,7 +93,7 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 
 			workflows, resp, err := client.Actions.ListWorkflows(ctx, owner, repo, opts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to list workflows: %w", err)
+				return nil, fmt.Errorf(ErrFailedToList, "workflows", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -231,7 +241,7 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 
 			workflowRuns, resp, err := client.Actions.ListWorkflowRunsByFileName(ctx, owner, repo, workflowID, opts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to list workflow runs: %w", err)
+				return nil, fmt.Errorf(ErrFailedToList, "workflow runs", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -320,7 +330,7 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}
 
 			if err != nil {
-				return nil, fmt.Errorf("failed to run workflow: %w", err)
+				return nil, fmt.Errorf(ErrFailedToRun, "workflow", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -386,7 +396,7 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			workflowRun, resp, err := client.Actions.GetWorkflowRunByID(ctx, owner, repo, runID)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get workflow run: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "workflow run", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -443,7 +453,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			// Get the download URL for the logs
 			url, resp, err := client.Actions.GetWorkflowRunLogs(ctx, owner, repo, runID, 1)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get workflow run logs: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "workflow run logs", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -543,7 +553,7 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 
 			jobs, resp, err := client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to list workflow jobs: %w", err)
+				return nil, fmt.Errorf(ErrFailedToList, "workflow jobs", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -779,7 +789,7 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 func downloadLogContent(logURL string, tailLines int) (string, int, *http.Response, error) {
 	httpResp, err := http.Get(logURL) //nolint:gosec // URLs are provided by GitHub API and are safe
 	if err != nil {
-		return "", 0, httpResp, fmt.Errorf("failed to download logs: %w", err)
+		return "", 0, httpResp, fmt.Errorf(ErrFailedToDownload, "logs", err)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
@@ -789,7 +799,7 @@ func downloadLogContent(logURL string, tailLines int) (string, int, *http.Respon
 
 	content, err := io.ReadAll(httpResp.Body)
 	if err != nil {
-		return "", 0, httpResp, fmt.Errorf("failed to read log content: %w", err)
+		return "", 0, httpResp, fmt.Errorf(ErrFailedToRead, "log content", err)
 	}
 
 	// Clean up and format the log content for better readability

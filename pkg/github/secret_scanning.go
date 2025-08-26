@@ -74,7 +74,7 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 
 			r, err := json.Marshal(alert)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "alert", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -155,7 +155,7 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 
 			r, err := json.Marshal(alerts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "alerts", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil

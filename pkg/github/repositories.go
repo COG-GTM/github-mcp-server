@@ -464,12 +464,12 @@ func handlePullRequestRef(ctx context.Context, getClient GetClientFn, owner, rep
 
 	prNum, err := strconv.Atoi(prNumber)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid pull request number: %w", err)
+		return "", "", fmt.Errorf(ErrInvalidNumber, "pull request", err)
 	}
 
 	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get pull request: %w", err)
+		return "", "", fmt.Errorf(ErrFailedToGet, "pull request", err)
 	}
 
 	return "", pr.GetHead().GetSHA(), nil
@@ -510,7 +510,7 @@ func fetchRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, owner
 	contentType := resp.Header.Get("Content-Type")
 	resourceURI, err := createResourceURI(owner, repo, path, rawOpts.SHA, rawOpts.Ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource URI: %w", err)
+		return nil, fmt.Errorf(ErrFailedToCreate, "resource URI", err)
 	}
 
 	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
@@ -776,7 +776,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			// Get the reference for the branch
 			ref, resp, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+branch)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get branch reference: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "branch reference", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 

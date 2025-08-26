@@ -58,7 +58,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get issue: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "issue", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -72,7 +72,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			r, err := json.Marshal(issue)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "issue", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -132,7 +132,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			}
 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create comment: %w", err)
+				return nil, fmt.Errorf(ErrFailedToCreate, "comment", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -299,7 +299,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}
 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create issue: %w", err)
+				return nil, fmt.Errorf(ErrFailedToCreate, "issue", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -421,7 +421,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}
 			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to list issues: %w", err)
+				return nil, fmt.Errorf(ErrFailedToList, "issues", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -435,7 +435,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			r, err := json.Marshal(issues)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "issues", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -567,7 +567,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}
 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
 			if err != nil {
-				return nil, fmt.Errorf("failed to update issue: %w", err)
+				return nil, fmt.Errorf(ErrFailedToUpdate, "issue", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -650,7 +650,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get issue comments: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "issue comments", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
@@ -853,7 +853,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 				},
 				nil,
 			); err != nil {
-				return nil, fmt.Errorf("failed to replace actors for assignable: %w", err)
+				return nil, fmt.Errorf("failed to replace actors for %s: %w", "assignable", err)
 			}
 
 			return mcp.NewToolResultText("successfully assigned copilot to issue"), nil
