@@ -113,15 +113,15 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// fetch the PR from the API to get the latest commit and use SHA
 			githubClient, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			prNum, err := strconv.Atoi(prNumber[0])
 			if err != nil {
-				return nil, fmt.Errorf("invalid pull request number: %w", err)
+				return nil, fmt.Errorf(ErrInvalidNumber, "pull request", err)
 			}
 			pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get pull request: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGet, "pull request", err)
 			}
 			sha := pr.GetHead().GetSHA()
 			rawOpts.SHA = sha
@@ -134,7 +134,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 		rawClient, err := getRawClient(ctx)
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub raw content client: %w", err)
+			return nil, fmt.Errorf(ErrFailedToGet, "GitHub raw content client", err)
 		}
 
 		resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
@@ -144,7 +144,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 		// If the raw content is not found, we will fall back to the GitHub API (in case it is a directory)
 		switch {
 		case err != nil:
-			return nil, fmt.Errorf("failed to get raw content: %w", err)
+			return nil, fmt.Errorf(ErrFailedToGet, "raw content", err)
 		case resp.StatusCode == http.StatusOK:
 			ext := filepath.Ext(path)
 			mimeType := resp.Header.Get("Content-Type")
@@ -156,7 +156,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 
 			content, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read file content: %w", err)
+				return nil, fmt.Errorf(ErrFailedToRead, "file content", err)
 			}
 
 			switch {
@@ -181,7 +181,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// If we got a response but it is not 200 OK, we return an error
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 			}
 			return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
 		default:

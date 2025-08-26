@@ -22,11 +22,11 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("category",
 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
@@ -149,7 +149,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			// Marshal and return
 			out, err := json.Marshal(discussions)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussions: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "discussions", err)
 			}
 			return mcp.NewToolResultText(string(out)), nil
 		}
@@ -164,11 +164,11 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("discussionNumber",
 				mcp.Required(),
@@ -227,7 +227,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			out, err := json.Marshal(discussion)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussion: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "discussion", err)
 			}
 
 			return mcp.NewToolResultText(string(out)), nil
@@ -241,8 +241,8 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 				Title:        t("TOOL_GET_DISCUSSION_COMMENTS_USER_TITLE", "Get discussion comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner", mcp.Required(), mcp.Description("Repository owner")),
-			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+			mcp.WithString("owner", mcp.Required(), mcp.Description(DescriptionRepositoryOwner)),
+			mcp.WithString("repo", mcp.Required(), mcp.Description(DescriptionRepositoryName)),
 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -287,7 +287,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			out, err := json.Marshal(comments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal comments: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "comments", err)
 			}
 
 			return mcp.NewToolResultText(string(out)), nil
@@ -303,11 +303,11 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("first",
 				mcp.Description("Number of categories to return per page (min 1, max 100)"),
@@ -384,7 +384,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 			out, err := json.Marshal(categories)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussion categories: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshal, "discussion categories", err)
 			}
 			return mcp.NewToolResultText(string(out)), nil
 		}

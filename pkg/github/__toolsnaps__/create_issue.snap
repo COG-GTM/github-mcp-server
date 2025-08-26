@@ -3,7 +3,7 @@
     "title": "Open new issue",
     "readOnlyHint": false
   },
-  "description": "Create a new issue in a GitHub repository.",
+  "description": "Create a new issue in a GitHub repository",
   "inputSchema": {
     "properties": {
       "assignees": {

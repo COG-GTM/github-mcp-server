@@ -3,7 +3,7 @@
     "title": "Merge pull request",
     "readOnlyHint": false
   },
-  "description": "Merge a pull request in a GitHub repository.",
+  "description": "Merge a pull request in a GitHub repository",
   "inputSchema": {
     "properties": {
       "commit_message": {

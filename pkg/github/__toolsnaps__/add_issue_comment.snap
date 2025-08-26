@@ -3,7 +3,7 @@
     "title": "Add comment to issue",
     "readOnlyHint": false
   },
-  "description": "Add a comment to a specific issue in a GitHub repository.",
+  "description": "Add a comment to a specific issue in a GitHub repository",
   "inputSchema": {
     "properties": {
       "body": {

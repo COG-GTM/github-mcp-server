@@ -3,7 +3,7 @@
     "title": "Edit issue",
     "readOnlyHint": false
   },
-  "description": "Update an existing issue in a GitHub repository.",
+  "description": "Update an existing issue in a GitHub repository",
   "inputSchema": {
     "properties": {
       "assignees": {
