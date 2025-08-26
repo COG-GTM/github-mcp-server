@@ -181,7 +181,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// If we got a response but it is not 200 OK, we return an error
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 			}
 			return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
 		default:
