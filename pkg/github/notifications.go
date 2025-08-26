@@ -132,7 +132,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "notifications", string(body))), nil
 			}
 
 			// Marshal response to JSON
@@ -330,7 +330,7 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notification details: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "notification details", string(body))), nil
 			}
 
 			r, err := json.Marshal(thread)

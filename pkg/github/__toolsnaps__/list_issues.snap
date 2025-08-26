@@ -3,7 +3,7 @@
     "title": "List issues",
     "readOnlyHint": true
   },
-  "description": "List issues in a GitHub repository.",
+  "description": "List issues in a GitHub repository",
   "inputSchema": {
     "properties": {
       "direction": {

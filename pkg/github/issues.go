@@ -20,7 +20,7 @@ import (
 // GetIssue creates a tool to get details of a specific issue in a GitHub repository.
 func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_issue",
-			mcp.WithDescription(t("TOOL_GET_ISSUE_DESCRIPTION", "Get details of a specific issue in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_GET_ISSUE_DESCRIPTION", fmt.Sprintf(DescGetDetailsInGitHubRepo, "specific issue"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_GET_ISSUE_USER_TITLE", "Get issue details"),
 				ReadOnlyHint: ToBoolPtr(true),
@@ -67,7 +67,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "issue", string(body))), nil
 			}
 
 			r, err := json.Marshal(issue)
@@ -82,18 +82,18 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 // AddIssueComment creates a tool to add a comment to an issue.
 func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("add_issue_comment",
-			mcp.WithDescription(t("TOOL_ADD_ISSUE_COMMENT_DESCRIPTION", "Add a comment to a specific issue in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_ADD_ISSUE_COMMENT_DESCRIPTION", fmt.Sprintf("Add a comment to a %s "+DescInGitHubRepository, "specific issue"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_ADD_ISSUE_COMMENT_USER_TITLE", "Add comment to issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -141,7 +141,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToCreate, "comment", string(body))), nil
 			}
 
 			r, err := json.Marshal(createdComment)
@@ -201,18 +201,18 @@ func SearchIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (
 // CreateIssue creates a tool to create a new issue in a GitHub repository.
 func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("create_issue",
-			mcp.WithDescription(t("TOOL_CREATE_ISSUE_DESCRIPTION", "Create a new issue in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_CREATE_ISSUE_DESCRIPTION", fmt.Sprintf(DescCreateNew, "issue"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_CREATE_ISSUE_USER_TITLE", "Open new issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("title",
 				mcp.Required(),
@@ -308,7 +308,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToCreate, "issue", string(body))), nil
 			}
 
 			r, err := json.Marshal(issue)
@@ -323,18 +323,18 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 // ListIssues creates a tool to list and filter repository issues
 func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_issues",
-			mcp.WithDescription(t("TOOL_LIST_ISSUES_DESCRIPTION", "List issues in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_LIST_ISSUES_DESCRIPTION", fmt.Sprintf(DescListInGitHubRepo, "issues"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_LIST_ISSUES_USER_TITLE", "List issues"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("state",
 				mcp.Description("Filter by state"),
@@ -430,7 +430,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToList, "issues", string(body))), nil
 			}
 
 			r, err := json.Marshal(issues)
@@ -445,18 +445,18 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 // UpdateIssue creates a tool to update an existing issue in a GitHub repository.
 func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("update_issue",
-			mcp.WithDescription(t("TOOL_UPDATE_ISSUE_DESCRIPTION", "Update an existing issue in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_UPDATE_ISSUE_DESCRIPTION", fmt.Sprintf(DescUpdateExisting, "issue"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_UPDATE_ISSUE_USER_TITLE", "Edit issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -576,7 +576,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToUpdate, "issue", string(body))), nil
 			}
 
 			r, err := json.Marshal(updatedIssue)
@@ -598,11 +598,11 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -659,7 +659,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "issue comments", string(body))), nil
 			}
 
 			r, err := json.Marshal(comments)
@@ -703,7 +703,7 @@ func (d *mvpDescription) String() string {
 
 func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	description := mvpDescription{
-		summary: "Assign Copilot to a specific issue in a GitHub repository.",
+		summary: fmt.Sprintf("Assign Copilot to a %s "+DescInGitHubRepository, "specific issue") + ".",
 		outcomes: []string{
 			"a Pull Request created with source code changes to resolve the issue",
 		},
@@ -721,11 +721,11 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithNumber("issueNumber",
 				mcp.Required(),

@@ -28,11 +28,11 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("sha",
 				mcp.Required(),
@@ -82,7 +82,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "commit", string(body))), nil
 			}
 
 			r, err := json.Marshal(commit)
@@ -104,11 +104,11 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("sha",
 				mcp.Description("The commit SHA, branch name, or tag name to list commits from. If not specified, defaults to the repository's default branch."),
@@ -172,7 +172,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToList, "commits", string(body))), nil
 			}
 
 			r, err := json.Marshal(commits)
@@ -194,11 +194,11 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			WithPagination(),
 		),
@@ -243,7 +243,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToList, "branches", string(body))), nil
 			}
 
 			r, err := json.Marshal(branches)
@@ -265,11 +265,11 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(DescriptionRepositoryOwner+" (username or organization)"),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -378,7 +378,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			}),
 			mcp.WithString("name",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("description",
 				mcp.Description("Repository description"),
@@ -434,7 +434,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToCreate, "repository", string(body))), nil
 			}
 
 			r, err := json.Marshal(createdRepo)
@@ -546,7 +546,7 @@ func handleDirectoryContent(ctx context.Context, getClient GetClientFn, owner, r
 		if err != nil {
 			return mcp.NewToolResultError("failed to read response body"), nil
 		}
-		return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
+		return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "file contents", string(body))), nil
 	}
 
 	r, err := json.Marshal(dirContent)
@@ -565,11 +565,11 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(DescriptionRepositoryOwner+" (username or organization)"),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -646,11 +646,11 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("organization",
 				mcp.Description("Organization to fork to"),
@@ -727,11 +727,11 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(DescriptionRepositoryOwner+" (username or organization)"),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -796,7 +796,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "commit", string(body))), nil
 			}
 
 			// Create a tree entry for the file deletion by setting SHA to nil
@@ -825,7 +825,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create tree: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToCreate, "tree", string(body))), nil
 			}
 
 			// Create a new commit with the new tree
@@ -849,7 +849,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToCreate, "commit", string(body))), nil
 			}
 
 			// Update the branch reference to point to the new commit
@@ -869,7 +869,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to update reference: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToUpdate, "reference", string(body))), nil
 			}
 
 			// Create a response similar to what the DeleteFile API would return
@@ -897,11 +897,11 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("branch",
 				mcp.Required(),
@@ -998,11 +998,11 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("branch",
 				mcp.Required(),
@@ -1163,18 +1163,18 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 // ListTags creates a tool to list tags in a GitHub repository.
 func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_tags",
-			mcp.WithDescription(t("TOOL_LIST_TAGS_DESCRIPTION", "List git tags in a GitHub repository")),
+			mcp.WithDescription(t("TOOL_LIST_TAGS_DESCRIPTION", "List git tags "+DescInGitHubRepository)),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_LIST_TAGS_USER_TITLE", "List tags"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			WithPagination(),
 		),
@@ -1217,7 +1217,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list tags: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToList, "tags", string(body))), nil
 			}
 
 			r, err := json.Marshal(tags)
@@ -1239,11 +1239,11 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(DescriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(DescriptionRepositoryName),
 			),
 			mcp.WithString("tag",
 				mcp.Required(),
@@ -1285,7 +1285,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag reference: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "tag reference", string(body))), nil
 			}
 
 			// Then get the tag object
@@ -1304,7 +1304,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag object: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "tag object", string(body))), nil
 			}
 
 			r, err := json.Marshal(tagObj)

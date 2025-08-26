@@ -16,7 +16,7 @@ import (
 
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_code_scanning_alert",
-			mcp.WithDescription(t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", fmt.Sprintf(DescGetDetailsInGitHubRepo, "specific code scanning alert"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_GET_CODE_SCANNING_ALERT_USER_TITLE", "Get code scanning alert"),
 				ReadOnlyHint: ToBoolPtr(true),
@@ -68,7 +68,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToGet, "alert", string(body))), nil
 			}
 
 			r, err := json.Marshal(alert)
@@ -82,7 +82,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 
 func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_code_scanning_alerts",
-			mcp.WithDescription(t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", "List code scanning alerts in a GitHub repository.")),
+			mcp.WithDescription(t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", fmt.Sprintf(DescListInGitHubRepo, "code scanning alerts"))),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
 				Title:        t("TOOL_LIST_CODE_SCANNING_ALERTS_USER_TITLE", "List code scanning alerts"),
 				ReadOnlyHint: ToBoolPtr(true),
@@ -156,7 +156,7 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToList, "alerts", string(body))), nil
 			}
 
 			r, err := json.Marshal(alerts)

@@ -3,7 +3,7 @@
     "title": "Open new pull request",
     "readOnlyHint": false
   },
-  "description": "Create a new pull request in a GitHub repository.",
+  "description": "Create a new pull request in a GitHub repository",
   "inputSchema": {
     "properties": {
       "base": {

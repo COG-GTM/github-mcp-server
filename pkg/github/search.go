@@ -63,7 +63,7 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToSearch, "repositories", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
@@ -143,7 +143,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToSearch, "code", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
@@ -260,7 +260,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			if err != nil {
 				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 			}
-			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
+			return mcp.NewToolResultError(fmt.Sprintf(ErrMsgFailedToSearch, accountType+"s", string(body))), nil
 		}
 
 		minimalUsers := transformUsersToMinimal(result.Users)

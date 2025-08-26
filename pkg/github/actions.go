@@ -30,11 +30,28 @@ const (
 	ErrFailedToDownload = "failed to download %s: %w"
 	ErrFailedToRead     = "failed to read %s: %w"
 	ErrInvalidNumber    = "invalid %s number: %w"
+
+	ErrMsgFailedToGet    = "failed to get %s: %s"
+	ErrMsgFailedToCreate = "failed to create %s: %s"
+	ErrMsgFailedToList   = "failed to list %s: %s"
+	ErrMsgFailedToUpdate = "failed to update %s: %s"
+	ErrMsgFailedToSearch = "failed to search %s: %s"
+	ErrMsgFailedToFork   = "failed to fork %s: %s"
+	ErrMsgFailedToDelete = "failed to delete %s: %s"
 )
 
 const (
 	DescriptionRepositoryOwner = "Repository owner"
 	DescriptionRepositoryName  = "Repository name"
+
+	DescInGitHubRepository     = "in a GitHub repository"
+	DescSpecificInGitHubRepo   = "specific %s in a GitHub repository"
+	DescGetDetails             = "Get details of a %s"
+	DescGetDetailsInGitHubRepo = "Get details of a %s in a GitHub repository"
+	DescCreateNew              = "Create a new %s in a GitHub repository"
+	DescUpdateExisting         = "Update an existing %s in a GitHub repository"
+	DescListInGitHubRepo       = "List %s in a GitHub repository"
+	DescMergeInGitHubRepo      = "Merge a %s in a GitHub repository"
 )
 
 // ListWorkflows creates a tool to list workflows in a repository

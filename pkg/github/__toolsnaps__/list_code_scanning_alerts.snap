@@ -3,7 +3,7 @@
     "title": "List code scanning alerts",
     "readOnlyHint": true
   },
-  "description": "List code scanning alerts in a GitHub repository.",
+  "description": "List code scanning alerts in a GitHub repository",
   "inputSchema": {
     "properties": {
       "owner": {
