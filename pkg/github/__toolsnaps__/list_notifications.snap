@@ -35,7 +35,7 @@
         "type": "number"
       },
       "repo": {
-        "description": "Optional repository name. If provided with owner, only notifications for this repository are listed.",
+        "description": "Optional Repository name. If provided with owner, only notifications for this repository are listed.",
         "type": "string"
       },
       "since": {

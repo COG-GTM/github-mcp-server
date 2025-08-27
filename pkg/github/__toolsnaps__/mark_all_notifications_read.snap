@@ -15,7 +15,7 @@
         "type": "string"
       },
       "repo": {
-        "description": "Optional repository name. If provided with owner, only notifications for this repository are marked as read.",
+        "description": "Optional Repository name. If provided with owner, only notifications for this repository are marked as read.",
         "type": "string"
       }
     },
