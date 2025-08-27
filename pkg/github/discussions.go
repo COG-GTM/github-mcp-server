@@ -13,6 +13,10 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+const (
+	ErrFailedToGetGQLClient = "failed to get GitHub GQL client: %v"
+)
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -33,120 +37,32 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			// Required params
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Optional params
-			category, err := OptionalParam[string](request, "category")
+			owner, repo, category, err := parseListDiscussionsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGQLClient, err)), nil
 			}
 
-			// If category filter is specified, use it as the category ID for server-side filtering
 			var categoryID *githubv4.ID
 			if category != "" {
 				id := githubv4.ID(category)
 				categoryID = &id
 			}
 
-			// Now execute the discussions query
 			var discussions []*github.Issue
 			if categoryID != nil {
-				// Query with category filter (server-side filtering)
-				var query struct {
-					Repository struct {
-						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
-						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-					} `graphql:"repository(owner: $owner, name: $repo)"`
-				}
-				vars := map[string]interface{}{
-					"owner":      githubv4.String(owner),
-					"repo":       githubv4.String(repo),
-					"categoryId": *categoryID,
-				}
-				if err := client.Query(ctx, &query, vars); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
-				}
-
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
-							},
-						},
-					}
-					discussions = append(discussions, di)
-				}
+				discussions, err = queryDiscussionsWithCategory(ctx, client, owner, repo, *categoryID)
 			} else {
-				// Query without category filter
-				var query struct {
-					Repository struct {
-						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
-						} `graphql:"discussions(first: 100)"`
-					} `graphql:"repository(owner: $owner, name: $repo)"`
-				}
-				vars := map[string]interface{}{
-					"owner": githubv4.String(owner),
-					"repo":  githubv4.String(repo),
-				}
-				if err := client.Query(ctx, &query, vars); err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
-				}
-
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
-							},
-						},
-					}
-					discussions = append(discussions, di)
-				}
+				discussions, err = queryDiscussionsWithoutCategory(ctx, client, owner, repo)
+			}
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Marshal and return
 			out, err := json.Marshal(discussions)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal discussions: %w", err)
@@ -187,7 +103,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGQLClient, err)), nil
 			}
 
 			var q struct {
@@ -241,8 +157,8 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 				Title:        t("TOOL_GET_DISCUSSION_COMMENTS_USER_TITLE", "Get discussion comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner", mcp.Required(), mcp.Description("Repository owner")),
-			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+			mcp.WithString("owner", mcp.Required(), mcp.Description(DescriptionRepositoryOwner)),
+			mcp.WithString("repo", mcp.Required(), mcp.Description(DescriptionRepositoryName)),
 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -258,7 +174,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGQLClient, err)), nil
 			}
 
 			var q struct {
@@ -327,7 +243,6 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			// Decode params
 			var params struct {
 				Owner  string
 				Repo   string
@@ -340,52 +255,167 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Validate pagination parameters
-			if params.First != 0 && params.Last != 0 {
-				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
-			}
-			if params.After != "" && params.Before != "" {
-				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
-			}
-			if params.After != "" && params.Last != 0 {
-				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
-			}
-			if params.Before != "" && params.First != 0 {
-				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
+			if err := validatePaginationParams(params.First, params.Last, params.After, params.Before); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGQLClient, err)), nil
 			}
-			var q struct {
-				Repository struct {
-					DiscussionCategories struct {
-						Nodes []struct {
-							ID   githubv4.ID
-							Name githubv4.String
-						}
-					} `graphql:"discussionCategories(first: 100)"`
-				} `graphql:"repository(owner: $owner, name: $repo)"`
-			}
-			vars := map[string]interface{}{
-				"owner": githubv4.String(params.Owner),
-				"repo":  githubv4.String(params.Repo),
-			}
-			if err := client.Query(ctx, &q, vars); err != nil {
+
+			categories, err := queryDiscussionCategories(ctx, client, params.Owner, params.Repo)
+			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			var categories []map[string]string
-			for _, c := range q.Repository.DiscussionCategories.Nodes {
-				categories = append(categories, map[string]string{
-					"id":   fmt.Sprint(c.ID),
-					"name": string(c.Name),
-				})
-			}
+
 			out, err := json.Marshal(categories)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal discussion categories: %w", err)
 			}
 			return mcp.NewToolResultText(string(out)), nil
 		}
+}
+
+func parseListDiscussionsParams(request mcp.CallToolRequest) (string, string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", "", err
+	}
+	category, err := OptionalParam[string](request, "category")
+	if err != nil {
+		return "", "", "", err
+	}
+	return owner, repo, category, nil
+}
+
+func queryDiscussionsWithCategory(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID githubv4.ID) ([]*github.Issue, error) {
+	var query struct {
+		Repository struct {
+			Discussions struct {
+				Nodes []struct {
+					Number    githubv4.Int
+					Title     githubv4.String
+					CreatedAt githubv4.DateTime
+					Category  struct {
+						Name githubv4.String
+					} `graphql:"category"`
+					URL githubv4.String `graphql:"url"`
+				}
+			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+	vars := map[string]interface{}{
+		"owner":      githubv4.String(owner),
+		"repo":       githubv4.String(repo),
+		"categoryId": categoryID,
+	}
+	if err := client.Query(ctx, &query, vars); err != nil {
+		return nil, err
+	}
+
+	return mapDiscussionNodesToIssues(query.Repository.Discussions.Nodes), nil
+}
+
+func queryDiscussionsWithoutCategory(ctx context.Context, client *githubv4.Client, owner, repo string) ([]*github.Issue, error) {
+	var query struct {
+		Repository struct {
+			Discussions struct {
+				Nodes []struct {
+					Number    githubv4.Int
+					Title     githubv4.String
+					CreatedAt githubv4.DateTime
+					Category  struct {
+						Name githubv4.String
+					} `graphql:"category"`
+					URL githubv4.String `graphql:"url"`
+				}
+			} `graphql:"discussions(first: 100)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+	vars := map[string]interface{}{
+		"owner": githubv4.String(owner),
+		"repo":  githubv4.String(repo),
+	}
+	if err := client.Query(ctx, &query, vars); err != nil {
+		return nil, err
+	}
+
+	return mapDiscussionNodesToIssues(query.Repository.Discussions.Nodes), nil
+}
+
+func mapDiscussionNodesToIssues(nodes []struct {
+	Number    githubv4.Int
+	Title     githubv4.String
+	CreatedAt githubv4.DateTime
+	Category  struct {
+		Name githubv4.String
+	} `graphql:"category"`
+	URL githubv4.String `graphql:"url"`
+}) []*github.Issue {
+	var discussions []*github.Issue
+	for _, n := range nodes {
+		di := &github.Issue{
+			Number:    github.Ptr(int(n.Number)),
+			Title:     github.Ptr(string(n.Title)),
+			HTMLURL:   github.Ptr(string(n.URL)),
+			CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+			Labels: []*github.Label{
+				{
+					Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+				},
+			},
+		}
+		discussions = append(discussions, di)
+	}
+	return discussions
+}
+
+func validatePaginationParams(first, last int32, after, before string) error {
+	if first != 0 && last != 0 {
+		return fmt.Errorf("only one of 'first' or 'last' may be specified")
+	}
+	if after != "" && before != "" {
+		return fmt.Errorf("only one of 'after' or 'before' may be specified")
+	}
+	if after != "" && last != 0 {
+		return fmt.Errorf("'after' cannot be used with 'last'. Did you mean to use 'before' instead?")
+	}
+	if before != "" && first != 0 {
+		return fmt.Errorf("'before' cannot be used with 'first'. Did you mean to use 'after' instead?")
+	}
+	return nil
+}
+
+func queryDiscussionCategories(ctx context.Context, client *githubv4.Client, owner, repo string) ([]map[string]string, error) {
+	var q struct {
+		Repository struct {
+			DiscussionCategories struct {
+				Nodes []struct {
+					ID   githubv4.ID
+					Name githubv4.String
+				}
+			} `graphql:"discussionCategories(first: 100)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+	vars := map[string]interface{}{
+		"owner": githubv4.String(owner),
+		"repo":  githubv4.String(repo),
+	}
+	if err := client.Query(ctx, &q, vars); err != nil {
+		return nil, err
+	}
+
+	var categories []map[string]string
+	for _, c := range q.Repository.DiscussionCategories.Nodes {
+		categories = append(categories, map[string]string{
+			"id":   fmt.Sprint(c.ID),
+			"name": string(c.Name),
+		})
+	}
+	return categories, nil
 }
