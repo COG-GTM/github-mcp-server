@@ -63,7 +63,7 @@ func searchHandler(
 
 	client, err := getClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to get GitHub client: %w", errorPrefix, err)
+		return nil, fmt.Errorf("%s: "+ErrFailedToGetGitHubClient, errorPrefix, err)
 	}
 	result, resp, err := client.Search.Issues(ctx, query, opts)
 	if err != nil {
@@ -81,7 +81,7 @@ func searchHandler(
 
 	r, err := json.Marshal(result)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to marshal response: %w", errorPrefix, err)
+		return nil, fmt.Errorf("%s: "+ErrFailedToMarshalResponse, errorPrefix, err)
 	}
 
 	return mcp.NewToolResultText(string(r)), nil

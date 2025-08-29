@@ -105,7 +105,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
             
             client, err := getClient(ctx)
             if err != nil {
-                return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+                return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
             }
             
             issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)

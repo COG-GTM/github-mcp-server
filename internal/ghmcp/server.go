@@ -124,7 +124,7 @@ func NewMCPServer(cfg MCPServerConfig) (*server.MCPServer, error) {
 	getRawClient := func(ctx context.Context) (*raw.Client, error) {
 		client, err := getClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+			return nil, fmt.Errorf(github.ErrFailedToGetGitHubClient, err)
 		}
 		return raw.NewClient(client, apiHost.rawURL), nil // closing over client
 	}

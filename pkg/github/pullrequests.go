@@ -54,7 +54,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
@@ -76,7 +76,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			r, err := json.Marshal(pr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -173,7 +173,7 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			pr, resp, err := client.PullRequests.Create(ctx, owner, repo, newPR)
 			if err != nil {
@@ -195,7 +195,7 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 
 			r, err := json.Marshal(pr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -298,7 +298,7 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			pr, resp, err := client.PullRequests.Edit(ctx, owner, repo, pullNumber, update)
 			if err != nil {
@@ -320,7 +320,7 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 
 			r, err := json.Marshal(pr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -411,7 +411,7 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			prs, resp, err := client.PullRequests.List(ctx, owner, repo, opts)
 			if err != nil {
@@ -433,7 +433,7 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 
 			r, err := json.Marshal(prs)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -504,7 +504,7 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			result, resp, err := client.PullRequests.Merge(ctx, owner, repo, pullNumber, commitMessage, options)
 			if err != nil {
@@ -526,7 +526,7 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -620,7 +620,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			opts := &github.ListOptions{
 				PerPage: pagination.perPage,
@@ -646,7 +646,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 
 			r, err := json.Marshal(files)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -690,7 +690,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			// First get the PR to find the head SHA
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
@@ -731,7 +731,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 
 			r, err := json.Marshal(status)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -786,7 +786,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			result, resp, err := client.PullRequests.UpdateBranch(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
@@ -813,7 +813,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -863,7 +863,7 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			comments, resp, err := client.PullRequests.ListComments(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
@@ -885,7 +885,7 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 
 			r, err := json.Marshal(comments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -929,7 +929,7 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			reviews, resp, err := client.PullRequests.ListReviews(ctx, owner, repo, pullNumber, nil)
 			if err != nil {
@@ -951,7 +951,7 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 
 			r, err := json.Marshal(reviews)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1009,7 +1009,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var getPullRequestQuery struct {
@@ -1103,7 +1103,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var getPullRequestQuery struct {
@@ -1228,7 +1228,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1365,7 +1365,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1489,7 +1489,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1604,7 +1604,7 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubClient, err), nil
 			}
 
 			raw, resp, err := client.PullRequests.GetRaw(

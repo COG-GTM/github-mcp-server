@@ -86,7 +86,7 @@ func ListAvailableToolsets(toolsetGroup *toolsets.ToolsetGroup, t translations.T
 
 			r, err := json.Marshal(payload)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal features: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalFeatures, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -130,7 +130,7 @@ func GetToolsetsTools(toolsetGroup *toolsets.ToolsetGroup, t translations.Transl
 
 			r, err := json.Marshal(payload)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal features: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalFeatures, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil

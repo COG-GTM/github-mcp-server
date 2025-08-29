@@ -50,7 +50,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			alert, resp, err := client.CodeScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
@@ -73,7 +73,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 
 			r, err := json.Marshal(alert)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalAlert, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -139,7 +139,7 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			alerts, resp, err := client.CodeScanning.ListAlertsForRepo(ctx, owner, repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
 			if err != nil {
@@ -161,7 +161,7 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 
 			r, err := json.Marshal(alerts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalAlert, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
