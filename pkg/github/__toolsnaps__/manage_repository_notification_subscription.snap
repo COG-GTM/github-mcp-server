@@ -16,11 +16,11 @@
         "type": "string"
       },
       "owner": {
-        "description": "The account owner of the repository.",
+        "description": "Repository owner",
         "type": "string"
       },
       "repo": {
-        "description": "The name of the repository.",
+        "description": "Repository name",
         "type": "string"
       }
     },

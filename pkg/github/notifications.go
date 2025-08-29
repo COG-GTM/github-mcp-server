@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	FilterDefault           = "default"
-	FilterIncludeRead       = "include_read_notifications"
-	FilterOnlyParticipating = "only_participating"
+	FilterDefault              = "default"
+	FilterIncludeRead          = "include_read_notifications"
+	FilterOnlyParticipating    = "only_participating"
+	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
 )
 
 // ListNotifications creates a tool to list notifications for the current user.
@@ -40,18 +41,13 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			mcp.WithString("before",
 				mcp.Description("Only show notifications updated before the given time (ISO 8601 format)"),
 			),
-			mcp.WithString("owner",
-				mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are listed."),
-			),
-			mcp.WithString("repo",
-				mcp.Description("Optional repository name. If provided with owner, only notifications for this repository are listed."),
-			),
+			WithOptionalOwnerRepo(),
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			filter, err := OptionalParam[string](request, "filter")
@@ -146,7 +142,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 }
 
 // DismissNotification creates a tool to mark a notification as read/done.
-func DismissNotification(getclient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+func DismissNotification(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("dismiss_notification",
 			mcp.WithDescription(t("TOOL_DISMISS_NOTIFICATION_DESCRIPTION", "Dismiss a notification by marking it as read or done")),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
@@ -160,9 +156,9 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 			mcp.WithString("state", mcp.Description("The new state of the notification (read/done)"), mcp.Enum("read", "done")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getclient(ctx)
+			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			threadID, err := RequiredParam[string](request, "threadID")
@@ -223,17 +219,12 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 			mcp.WithString("lastReadAt",
 				mcp.Description("Describes the last point that notifications were checked (optional). Default: Now"),
 			),
-			mcp.WithString("owner",
-				mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are marked as read."),
-			),
-			mcp.WithString("repo",
-				mcp.Description("Optional repository name. If provided with owner, only notifications for this repository are marked as read."),
-			),
+			WithOptionalOwnerRepo(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			lastReadAt, err := OptionalParam[string](request, "lastReadAt")
@@ -307,7 +298,7 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -370,7 +361,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -442,14 +433,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				Title:        t("TOOL_MANAGE_REPOSITORY_NOTIFICATION_SUBSCRIPTION_USER_TITLE", "Manage repository notification subscription"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("The account owner of the repository."),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("The name of the repository."),
-			),
+			WithOwnerRepo(),
 			mcp.WithString("action",
 				mcp.Required(),
 				mcp.Description("Action to perform: ignore, watch, or delete the repository notification subscription."),
@@ -459,16 +443,12 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			action, err := RequiredParam[string](request, "action")
 			if err != nil {

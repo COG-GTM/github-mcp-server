@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,6 +192,34 @@ func WithPagination() mcp.ToolOption {
 	}
 }
 
+// WithOwnerRepo returns a ToolOption that adds standard "owner" and "repo" parameters to the tool.
+func WithOwnerRepo() mcp.ToolOption {
+	return func(tool *mcp.Tool) {
+		mcp.WithString("owner",
+			mcp.Required(),
+			mcp.Description("Repository owner"),
+		)(tool)
+
+		mcp.WithString("repo",
+			mcp.Required(),
+			mcp.Description("Repository name"),
+		)(tool)
+	}
+}
+
+// WithOptionalOwnerRepo returns a ToolOption that adds optional "owner" and "repo" parameters to the tool.
+func WithOptionalOwnerRepo() mcp.ToolOption {
+	return func(tool *mcp.Tool) {
+		mcp.WithString("owner",
+			mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are listed."),
+		)(tool)
+
+		mcp.WithString("repo",
+			mcp.Description("Optional repository name. If provided with owner, only notifications for this repository are listed."),
+		)(tool)
+	}
+}
+
 type PaginationParams struct {
 	page    int
 	perPage int
@@ -223,4 +252,40 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+func parseOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
+func parseOwnerRepoWithMCPError(request mcp.CallToolRequest) (string, string, *mcp.CallToolResult) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	return owner, repo, nil
+}
+
+func parseOwnerRepoWithClient(ctx context.Context, request mcp.CallToolRequest, getClient GetClientFn) (string, string, *github.Client, error) {
+	owner, repo, err := parseOwnerRepo(request)
+	if err != nil {
+		return "", "", nil, err
+	}
+	client, err := getClient(ctx)
+	if err != nil {
+		return "", "", nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+	}
+	return owner, repo, client, nil
 }

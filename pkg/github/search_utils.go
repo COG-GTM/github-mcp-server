@@ -63,7 +63,7 @@ func searchHandler(
 
 	client, err := getClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to get GitHub client: %w", errorPrefix, err)
+		return nil, fmt.Errorf("%s: "+ErrFailedToGetGitHubClient, errorPrefix, err)
 	}
 	result, resp, err := client.Search.Issues(ctx, query, opts)
 	if err != nil {
