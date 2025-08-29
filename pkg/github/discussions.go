@@ -51,7 +51,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			// If category filter is specified, use it as the category ID for server-side filtering
@@ -149,7 +149,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			// Marshal and return
 			out, err := json.Marshal(discussions)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussions: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalDiscussions, err)
 			}
 			return mcp.NewToolResultText(string(out)), nil
 		}
@@ -187,7 +187,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var q struct {
@@ -227,7 +227,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			out, err := json.Marshal(discussion)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussion: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalDiscussion, err)
 			}
 
 			return mcp.NewToolResultText(string(out)), nil
@@ -258,7 +258,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var q struct {
@@ -287,7 +287,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			out, err := json.Marshal(comments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal comments: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalComments, err)
 			}
 
 			return mcp.NewToolResultText(string(out)), nil
@@ -356,7 +356,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 			var q struct {
 				Repository struct {
@@ -384,7 +384,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 			out, err := json.Marshal(categories)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal discussion categories: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalDiscussionCategories, err)
 			}
 			return mcp.NewToolResultText(string(out)), nil
 		}

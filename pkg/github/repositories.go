@@ -20,8 +20,17 @@ import (
 )
 
 const (
-	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
-	ErrFailedToMarshalResponse = "failed to marshal response: %w"
+	ErrFailedToGetGitHubClient             = "failed to get GitHub client: %w"
+	ErrFailedToMarshalResponse             = "failed to marshal response: %w"
+	ErrFailedToGetGitHubGQLClient          = "failed to get GitHub GQL client: %w"
+	ErrFailedToGetGitHubRawContentClient   = "failed to get GitHub raw content client: %w"
+	ErrFailedToMarshalAlert                = "failed to marshal alert: %w"
+	ErrFailedToMarshalDiscussions          = "failed to marshal discussions: %w"
+	ErrFailedToMarshalIssues               = "failed to marshal issues: %w"
+	ErrFailedToMarshalFeatures             = "failed to marshal features: %w"
+	ErrFailedToMarshalComments             = "failed to marshal comments: %w"
+	ErrFailedToMarshalDiscussion           = "failed to marshal discussion: %w"
+	ErrFailedToMarshalDiscussionCategories = "failed to marshal discussion categories: %w"
 )
 
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -531,7 +540,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 				rawClient, err := getRawClient(ctx)
 				if err != nil {
-					return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+					return mcp.NewToolResultError(ErrFailedToGetGitHubRawContentClient), nil
 				}
 				resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
 				if err != nil {
@@ -587,7 +596,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError("failed to get GitHub client"), nil
+				return mcp.NewToolResultError(ErrFailedToGetGitHubClient), nil
 			}
 
 			if sha != "" {
@@ -611,7 +620,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 				r, err := json.Marshal(dirContent)
 				if err != nil {
-					return mcp.NewToolResultError("failed to marshal response"), nil
+					return mcp.NewToolResultError(ErrFailedToMarshalResponse), nil
 				}
 				return mcp.NewToolResultText(string(r)), nil
 			}

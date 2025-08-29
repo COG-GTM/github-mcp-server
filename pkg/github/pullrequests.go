@@ -1009,7 +1009,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var getPullRequestQuery struct {
@@ -1103,7 +1103,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// Given our owner, repo and PR number, lookup the GQL ID of the PR.
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubGQLClient, err), nil
 			}
 
 			var getPullRequestQuery struct {
@@ -1228,7 +1228,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1365,7 +1365,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1489,7 +1489,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub GQL client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubGQLClient, err)
 			}
 
 			// First we'll get the current user
@@ -1604,7 +1604,7 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub client: %v", err)), nil
+				return mcp.NewToolResultErrorFromErr(ErrFailedToGetGitHubClient, err), nil
 			}
 
 			raw, resp, err := client.PullRequests.GetRaw(

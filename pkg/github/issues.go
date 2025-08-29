@@ -72,7 +72,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			r, err := json.Marshal(issue)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalIssues, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -435,7 +435,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			r, err := json.Marshal(issues)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalIssues, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
