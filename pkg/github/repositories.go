@@ -19,6 +19,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
+	ErrFailedToMarshalResponse = "failed to marshal response: %w"
+)
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
