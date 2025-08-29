@@ -192,6 +192,34 @@ func WithPagination() mcp.ToolOption {
 	}
 }
 
+// WithOwnerRepo returns a ToolOption that adds standard "owner" and "repo" parameters to the tool.
+func WithOwnerRepo() mcp.ToolOption {
+	return func(tool *mcp.Tool) {
+		mcp.WithString("owner",
+			mcp.Required(),
+			mcp.Description("Repository owner"),
+		)(tool)
+
+		mcp.WithString("repo",
+			mcp.Required(),
+			mcp.Description("Repository name"),
+		)(tool)
+	}
+}
+
+// WithOptionalOwnerRepo returns a ToolOption that adds optional "owner" and "repo" parameters to the tool.
+func WithOptionalOwnerRepo() mcp.ToolOption {
+	return func(tool *mcp.Tool) {
+		mcp.WithString("owner",
+			mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are listed."),
+		)(tool)
+
+		mcp.WithString("repo",
+			mcp.Description("Optional repository name. If provided with owner, only notifications for this repository are listed."),
+		)(tool)
+	}
+}
+
 type PaginationParams struct {
 	page    int
 	perPage int

@@ -11,11 +11,11 @@
         "type": "string"
       },
       "owner": {
-        "description": "Optional repository owner. If provided with repo, only notifications for this repository are marked as read.",
+        "description": "Optional repository owner. If provided with repo, only notifications for this repository are listed.",
         "type": "string"
       },
       "repo": {
-        "description": "Optional repository name. If provided with owner, only notifications for this repository are marked as read.",
+        "description": "Optional repository name. If provided with owner, only notifications for this repository are listed.",
         "type": "string"
       }
     },
