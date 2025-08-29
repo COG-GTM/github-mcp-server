@@ -1,6 +1,7 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -223,4 +224,40 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+func parseOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
+func parseOwnerRepoWithMCPError(request mcp.CallToolRequest) (string, string, *mcp.CallToolResult) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+	return owner, repo, nil
+}
+
+func parseOwnerRepoWithClient(ctx context.Context, request mcp.CallToolRequest, getClient GetClientFn) (string, string, *github.Client, error) {
+	owner, repo, err := parseOwnerRepo(request)
+	if err != nil {
+		return "", "", nil, err
+	}
+	client, err := getClient(ctx)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("failed to get GitHub client: %w", err)
+	}
+	return owner, repo, client, nil
 }

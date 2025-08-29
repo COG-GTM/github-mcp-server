@@ -208,11 +208,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, client, err := parseOwnerRepoWithClient(ctx, request, getClient)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -226,11 +222,6 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 					Page:    pagination.page,
 					PerPage: pagination.perPage,
 				},
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			branches, resp, err := client.Repositories.ListBranches(ctx, owner, repo, opts)
@@ -1197,11 +1188,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, client, err := parseOwnerRepoWithClient(ctx, request, getClient)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -1213,11 +1200,6 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			opts := &github.ListOptions{
 				Page:    pagination.page,
 				PerPage: pagination.perPage,
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opts)
