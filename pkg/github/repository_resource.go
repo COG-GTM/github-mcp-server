@@ -134,7 +134,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 		rawClient, err := getRawClient(ctx)
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub raw content client: %w", err)
+			return nil, fmt.Errorf(ErrFailedToGetGitHubRawContentClient, err)
 		}
 
 		resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
