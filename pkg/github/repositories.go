@@ -46,13 +46,9 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			sha, err := RequiredParam[string](request, "sha")
 			if err != nil {
@@ -124,13 +120,9 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			sha, err := OptionalParam[string](request, "sha")
 			if err != nil {
@@ -288,13 +280,9 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			path, err := RequiredParam[string](request, "path")
 			if err != nil {
@@ -503,11 +491,7 @@ type fileContentsParams struct {
 }
 
 func parseFileContentsParams(request mcp.CallToolRequest) (*fileContentsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -612,7 +596,7 @@ func buildResourceURI(owner, repo, path, sha, ref string) (string, error) {
 func getDirectoryOrFileContents(ctx context.Context, getClient GetClientFn, owner, repo, path, sha, ref string) (*mcp.CallToolResult, error) {
 	client, err := getClient(ctx)
 	if err != nil {
-		return mcp.NewToolResultError("failed to get GitHub client"), nil
+		return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 	}
 
 	if sha != "" {
@@ -666,13 +650,9 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			org, err := OptionalParam[string](request, "organization")
 			if err != nil {
@@ -756,13 +736,9 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			path, err := RequiredParam[string](request, "path")
 			if err != nil {
@@ -921,13 +897,9 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			branch, err := RequiredParam[string](request, "branch")
 			if err != nil {
@@ -1043,13 +1015,9 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			branch, err := RequiredParam[string](request, "branch")
 			if err != nil {
@@ -1251,13 +1219,9 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			tag, err := RequiredParam[string](request, "tag")
 			if err != nil {

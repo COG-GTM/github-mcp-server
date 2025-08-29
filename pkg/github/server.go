@@ -257,7 +257,7 @@ func parseOwnerRepoWithClient(ctx context.Context, request mcp.CallToolRequest, 
 	}
 	client, err := getClient(ctx)
 	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to get GitHub client: %w", err)
+		return "", "", nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 	}
 	return owner, repo, client, nil
 }

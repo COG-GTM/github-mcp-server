@@ -34,13 +34,9 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			// Required params
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 
 			// Optional params

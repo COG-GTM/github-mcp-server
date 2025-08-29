@@ -83,7 +83,7 @@ func Test_GetMe(t *testing.T) {
 			stubbedGetClientFn: stubGetClientFnErr("expected test error"),
 			requestArgs:        map[string]any{},
 			expectToolError:    true,
-			expectedToolErrMsg: "failed to get GitHub client: expected test error",
+			expectedToolErrMsg: ErrFailedToGetGitHubClient + ": expected test error",
 		},
 		{
 			name: "get user fails",

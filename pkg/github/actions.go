@@ -45,13 +45,9 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 
 			// Get optional pagination parameters
@@ -165,13 +161,9 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			workflowID, err := RequiredParam[string](request, "workflow_id")
 			if err != nil {
@@ -355,13 +347,9 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -411,13 +399,9 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -487,13 +471,9 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -825,13 +805,9 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -888,13 +864,9 @@ func RerunFailedJobs(getClient GetClientFn, t translations.TranslationHelperFunc
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -951,13 +923,9 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -1020,13 +988,9 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -1092,13 +1056,9 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			artifactIDInt, err := RequiredInt(request, "artifact_id")
 			if err != nil {
@@ -1158,13 +1118,9 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {
@@ -1221,13 +1177,9 @@ func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelper
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			runIDInt, err := RequiredInt(request, "run_id")
 			if err != nil {

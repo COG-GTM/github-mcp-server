@@ -39,13 +39,9 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			issueNumber, err := RequiredInt(request, "issue_number")
 			if err != nil {
@@ -105,13 +101,9 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			issueNumber, err := RequiredInt(request, "issue_number")
 			if err != nil {
@@ -242,13 +234,9 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			title, err := RequiredParam[string](request, "title")
 			if err != nil {
@@ -362,37 +350,45 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 
 			opts := &github.IssueListByRepoOptions{}
 
 			// Set optional parameters if provided
-			opts.State, err = OptionalParam[string](request, "state")
+			state, err := OptionalParam[string](request, "state")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
+			}
+			if state != "" {
+				opts.State = state
 			}
 
 			// Get labels
-			opts.Labels, err = OptionalStringArrayParam(request, "labels")
+			labels, err := OptionalStringArrayParam(request, "labels")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			if len(labels) > 0 {
+				opts.Labels = labels
+			}
 
-			opts.Sort, err = OptionalParam[string](request, "sort")
+			sort, err := OptionalParam[string](request, "sort")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+			if sort != "" {
+				opts.Sort = sort
+			}
 
-			opts.Direction, err = OptionalParam[string](request, "direction")
+			direction, err := OptionalParam[string](request, "direction")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
+			}
+			if direction != "" {
+				opts.Direction = direction
 			}
 
 			since, err := OptionalParam[string](request, "since")
@@ -493,13 +489,9 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			issueNumber, err := RequiredInt(request, "issue_number")
 			if err != nil {
@@ -616,13 +608,9 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			issueNumber, err := RequiredInt(request, "issue_number")
 			if err != nil {

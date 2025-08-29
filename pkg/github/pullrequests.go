@@ -352,13 +352,9 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			state, err := OptionalParam[string](request, "state")
 			if err != nil {
@@ -1568,7 +1564,7 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub client: %v", err)), nil
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			raw, resp, err := client.PullRequests.GetRaw(
@@ -1625,14 +1621,9 @@ func RequestCopilotReview(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 
 			pullNumber, err := RequiredInt(request, "pullNumber")
@@ -1642,7 +1633,7 @@ func RequestCopilotReview(getClient GetClientFn, t translations.TranslationHelpe
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			_, resp, err := client.PullRequests.RequestReviewers(

@@ -147,7 +147,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 }
 
 // DismissNotification creates a tool to mark a notification as read/done.
-func DismissNotification(getclient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+func DismissNotification(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("dismiss_notification",
 			mcp.WithDescription(t("TOOL_DISMISS_NOTIFICATION_DESCRIPTION", "Dismiss a notification by marking it as read or done")),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
@@ -161,7 +161,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 			mcp.WithString("state", mcp.Description("The new state of the notification (read/done)"), mcp.Enum("read", "done")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getclient(ctx)
+			client, err := getClient(ctx)
 			if err != nil {
 				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
@@ -463,13 +463,9 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, mcpErr := parseOwnerRepoWithMCPError(request)
+			if mcpErr != nil {
+				return mcpErr, nil
 			}
 			action, err := RequiredParam[string](request, "action")
 			if err != nil {
