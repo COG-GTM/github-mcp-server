@@ -119,48 +119,35 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
+			params, err := validateListCommitsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := OptionalParam[string](request, "sha")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			author, err := OptionalParam[string](request, "author")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			// Set default perPage to 30 if not provided
-			perPage := pagination.perPage
-			if perPage == 0 {
-				perPage = 30
-			}
-			opts := &github.CommitsListOptions{
-				SHA:    sha,
-				Author: author,
-				ListOptions: github.ListOptions{
-					Page:    pagination.page,
-					PerPage: perPage,
-				},
 			}
 
 			client, err := getClient(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
-			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
+
+			// Set default perPage to 30 if not provided
+			perPage := params.pagination.perPage
+			if perPage == 0 {
+				perPage = 30
+			}
+
+			opts := &github.CommitsListOptions{
+				SHA:    params.sha,
+				Author: params.author,
+				ListOptions: github.ListOptions{
+					Page:    params.pagination.page,
+					PerPage: perPage,
+				},
+			}
+
+			commits, resp, err := client.Repositories.ListCommits(ctx, params.owner, params.repo, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to list commits: %s", sha),
+					fmt.Sprintf("failed to list commits: %s", params.sha),
 					resp,
 					err,
 				), nil
@@ -182,6 +169,45 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			return mcp.NewToolResultText(string(r)), nil
 		}
+}
+
+type listCommitsParams struct {
+	owner      string
+	repo       string
+	sha        string
+	author     string
+	pagination PaginationParams
+}
+
+func validateListCommitsParams(request mcp.CallToolRequest) (*listCommitsParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	sha, err := OptionalParam[string](request, "sha")
+	if err != nil {
+		return nil, err
+	}
+	author, err := OptionalParam[string](request, "author")
+	if err != nil {
+		return nil, err
+	}
+	pagination, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &listCommitsParams{
+		owner:      owner,
+		repo:       repo,
+		sha:        sha,
+		author:     author,
+		pagination: pagination,
+	}, nil
 }
 
 // ListBranches creates a tool to list branches in a GitHub repository.
