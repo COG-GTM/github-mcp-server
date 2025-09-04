@@ -2,8 +2,6 @@ package github
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
@@ -12,109 +10,65 @@ import (
 )
 
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	options := CreateStandardToolBase(
-		t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository."),
-		t("TOOL_GET_CODE_SCANNING_ALERT_USER_TITLE", "Get code scanning alert"),
-		true,
-	)
-
-	options = append(options, mcp.WithNumber("alertNumber",
-		mcp.Required(),
-		mcp.Description("The number of the alert."),
-	))
-
-	return mcp.NewTool("get_code_scanning_alert", options...), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		params, err := ExtractStandardParams(request)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		alertNumber, err := RequiredInt(request, "alertNumber")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		client, err := getClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-		}
-
-		alert, resp, err := client.CodeScanning.GetAlert(ctx, params.Owner, params.Repo, int64(alertNumber))
-		if errResult, errReturn := HandleStandardAPIError(ctx, resp, err, "failed to get alert"); errResult != nil {
-			return errResult, errReturn
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode != http.StatusOK {
-			return HandleHTTPError(resp, "failed to get alert")
-		}
-
-		return MarshalResponse(alert)
+	config := ToolConfig{
+		Name:        "get_code_scanning_alert",
+		Description: t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository."),
+		Title:       t("TOOL_GET_CODE_SCANNING_ALERT_USER_TITLE", "Get code scanning alert"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "The owner of the repository."},
+			{Name: "repo", Type: "string", Required: true, Description: "The name of the repository."},
+			{Name: "alertNumber", Type: "number", Required: true, Description: "The number of the alert."},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				return client.CodeScanning.GetAlert(ctx, params["owner"].(string), params["repo"].(string), int64(params["alertNumber"].(int)))
+			},
+			ErrorPrefix: "failed to get alert",
+		},
 	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	options := CreateStandardToolBase(
-		t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", "List code scanning alerts in a GitHub repository."),
-		t("TOOL_LIST_CODE_SCANNING_ALERTS_USER_TITLE", "List code scanning alerts"),
-		true,
-	)
-
-	options = append(options,
-		mcp.WithString("state",
-			mcp.Description("Filter code scanning alerts by state. Defaults to open"),
-			mcp.DefaultString("open"),
-			mcp.Enum("open", "closed", "dismissed", "fixed"),
-		),
-		mcp.WithString("ref",
-			mcp.Description("The Git reference for the results you want to list."),
-		),
-		mcp.WithString("severity",
-			mcp.Description("Filter code scanning alerts by severity"),
-			mcp.Enum("critical", "high", "medium", "low", "warning", "note", "error"),
-		),
-		mcp.WithString("tool_name",
-			mcp.Description("The name of the tool used for code scanning."),
-		),
-	)
-
-	return mcp.NewTool("list_code_scanning_alerts", options...), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		params, err := ExtractStandardParams(request)
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		ref, err := OptionalParam[string](request, "ref")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		state, err := OptionalParam[string](request, "state")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		severity, err := OptionalParam[string](request, "severity")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		toolName, err := OptionalParam[string](request, "tool_name")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-
-		client, err := getClient(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-		}
-		alerts, resp, err := client.CodeScanning.ListAlertsForRepo(ctx, params.Owner, params.Repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
-		if errResult, errReturn := HandleStandardAPIError(ctx, resp, err, "failed to list alerts"); errResult != nil {
-			return errResult, errReturn
-		}
-		defer func() { _ = resp.Body.Close() }()
-
-		if resp.StatusCode != http.StatusOK {
-			return HandleHTTPError(resp, "failed to list alerts")
-		}
-
-		return MarshalResponse(alerts)
+	config := ToolConfig{
+		Name:        "list_code_scanning_alerts",
+		Description: t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", "List code scanning alerts in a GitHub repository."),
+		Title:       t("TOOL_LIST_CODE_SCANNING_ALERTS_USER_TITLE", "List code scanning alerts"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "The owner of the repository."},
+			{Name: "repo", Type: "string", Required: true, Description: "The name of the repository."},
+			{Name: "state", Type: "string", Required: false, Description: "Filter code scanning alerts by state. Defaults to open", Enum: []string{"open", "closed", "dismissed", "fixed"}},
+			{Name: "ref", Type: "string", Required: false, Description: "The Git reference for the results you want to list."},
+			{Name: "severity", Type: "string", Required: false, Description: "Filter code scanning alerts by severity", Enum: []string{"critical", "high", "medium", "low", "warning", "note", "error"}},
+			{Name: "tool_name", Type: "string", Required: false, Description: "The name of the tool used for code scanning."},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				opts := &github.AlertListOptions{}
+				if ref, ok := params["ref"].(string); ok {
+					opts.Ref = ref
+				}
+				if state, ok := params["state"].(string); ok {
+					opts.State = state
+				}
+				if severity, ok := params["severity"].(string); ok {
+					opts.Severity = severity
+				}
+				if toolName, ok := params["tool_name"].(string); ok {
+					opts.ToolName = toolName
+				}
+				if page, ok := params["page"].(int); ok {
+					opts.ListOptions.Page = page
+				}
+				if perPage, ok := params["perPage"].(int); ok {
+					opts.ListOptions.PerPage = perPage
+				}
+				return client.CodeScanning.ListAlertsForRepo(ctx, params["owner"].(string), params["repo"].(string), opts)
+			},
+			ErrorPrefix: "failed to list alerts",
+		},
 	}
+	return CreateGitHubTool(getClient, t, config)
 }

@@ -19,64 +19,25 @@ import (
 
 // GetIssue creates a tool to get details of a specific issue in a GitHub repository.
 func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_issue",
-			mcp.WithDescription(t("TOOL_GET_ISSUE_DESCRIPTION", "Get details of a specific issue in a GitHub repository.")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_ISSUE_USER_TITLE", "Get issue details"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("The owner of the repository"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("The name of the repository"),
-			),
-			mcp.WithNumber("issue_number",
-				mcp.Required(),
-				mcp.Description("The number of the issue"),
-			),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			issueNumber, err := RequiredInt(request, "issue_number")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get issue: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+	config := ToolConfig{
+		Name:        "get_issue",
+		Description: t("TOOL_GET_ISSUE_DESCRIPTION", "Get details of a specific issue in a GitHub repository."),
+		Title:       t("TOOL_GET_ISSUE_USER_TITLE", "Get issue details"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "The owner of the repository"},
+			{Name: "repo", Type: "string", Required: true, Description: "The name of the repository"},
+			{Name: "issue_number", Type: "number", Required: true, Description: "The number of the issue"},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				return client.Issues.Get(ctx, params["owner"].(string), params["repo"].(string), params["issue_number"].(int))
+			},
+			ErrorPrefix:    "failed to get issue",
+			ReturnGoErrors: true,
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 // AddIssueComment creates a tool to add a comment to an issue.
