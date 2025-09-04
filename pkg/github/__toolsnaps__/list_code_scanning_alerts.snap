@@ -32,7 +32,6 @@
         "type": "string"
       },
       "state": {
-        "default": "open",
         "description": "Filter code scanning alerts by state. Defaults to open",
         "enum": [
           "open",

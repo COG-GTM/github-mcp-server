@@ -2,12 +2,7 @@ package github
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 
-	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -15,155 +10,65 @@ import (
 )
 
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_code_scanning_alert",
-			mcp.WithDescription(t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository.")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_CODE_SCANNING_ALERT_USER_TITLE", "Get code scanning alert"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("The owner of the repository."),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("The name of the repository."),
-			),
-			mcp.WithNumber("alertNumber",
-				mcp.Required(),
-				mcp.Description("The number of the alert."),
-			),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			alertNumber, err := RequiredInt(request, "alertNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-
-			alert, resp, err := client.CodeScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get alert",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(alert)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+	config := ToolConfig{
+		Name:        "get_code_scanning_alert",
+		Description: t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository."),
+		Title:       t("TOOL_GET_CODE_SCANNING_ALERT_USER_TITLE", "Get code scanning alert"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "The owner of the repository."},
+			{Name: "repo", Type: "string", Required: true, Description: "The name of the repository."},
+			{Name: "alertNumber", Type: "number", Required: true, Description: "The number of the alert."},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				return client.CodeScanning.GetAlert(ctx, params["owner"].(string), params["repo"].(string), int64(params["alertNumber"].(int)))
+			},
+			ErrorPrefix: "failed to get alert",
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("list_code_scanning_alerts",
-			mcp.WithDescription(t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", "List code scanning alerts in a GitHub repository.")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_LIST_CODE_SCANNING_ALERTS_USER_TITLE", "List code scanning alerts"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("The owner of the repository."),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("The name of the repository."),
-			),
-			mcp.WithString("state",
-				mcp.Description("Filter code scanning alerts by state. Defaults to open"),
-				mcp.DefaultString("open"),
-				mcp.Enum("open", "closed", "dismissed", "fixed"),
-			),
-			mcp.WithString("ref",
-				mcp.Description("The Git reference for the results you want to list."),
-			),
-			mcp.WithString("severity",
-				mcp.Description("Filter code scanning alerts by severity"),
-				mcp.Enum("critical", "high", "medium", "low", "warning", "note", "error"),
-			),
-			mcp.WithString("tool_name",
-				mcp.Description("The name of the tool used for code scanning."),
-			),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			ref, err := OptionalParam[string](request, "ref")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			state, err := OptionalParam[string](request, "state")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			severity, err := OptionalParam[string](request, "severity")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			toolName, err := OptionalParam[string](request, "tool_name")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			alerts, resp, err := client.CodeScanning.ListAlertsForRepo(ctx, owner, repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to list alerts",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+	config := ToolConfig{
+		Name:        "list_code_scanning_alerts",
+		Description: t("TOOL_LIST_CODE_SCANNING_ALERTS_DESCRIPTION", "List code scanning alerts in a GitHub repository."),
+		Title:       t("TOOL_LIST_CODE_SCANNING_ALERTS_USER_TITLE", "List code scanning alerts"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "The owner of the repository."},
+			{Name: "repo", Type: "string", Required: true, Description: "The name of the repository."},
+			{Name: "state", Type: "string", Required: false, Description: "Filter code scanning alerts by state. Defaults to open", Enum: []string{"open", "closed", "dismissed", "fixed"}},
+			{Name: "ref", Type: "string", Required: false, Description: "The Git reference for the results you want to list."},
+			{Name: "severity", Type: "string", Required: false, Description: "Filter code scanning alerts by severity", Enum: []string{"critical", "high", "medium", "low", "warning", "note", "error"}},
+			{Name: "tool_name", Type: "string", Required: false, Description: "The name of the tool used for code scanning."},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				opts := &github.AlertListOptions{}
+				if ref, ok := params["ref"].(string); ok {
+					opts.Ref = ref
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(alerts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+				if state, ok := params["state"].(string); ok {
+					opts.State = state
+				}
+				if severity, ok := params["severity"].(string); ok {
+					opts.Severity = severity
+				}
+				if toolName, ok := params["tool_name"].(string); ok {
+					opts.ToolName = toolName
+				}
+				if page, ok := params["page"].(int); ok {
+					opts.ListOptions.Page = page
+				}
+				if perPage, ok := params["perPage"].(int); ok {
+					opts.ListOptions.PerPage = perPage
+				}
+				return client.CodeScanning.ListAlertsForRepo(ctx, params["owner"].(string), params["repo"].(string), opts)
+			},
+			ErrorPrefix: "failed to list alerts",
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }

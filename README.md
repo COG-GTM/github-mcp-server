@@ -964,6 +964,21 @@ export GITHUB_MCP_TOOL_ADD_ISSUE_COMMENT_DESCRIPTION="an alternative description
 </details>
 <!-- END AUTOMATED TOOLS -->
 
+## Code Quality
+
+This project maintains high code quality standards:
+
+- **SonarQube Integration**: Continuous code quality analysis with zero High severity issues
+- **String Deduplication**: Common error messages are centralized in constants to reduce duplication
+- **Cognitive Complexity**: Functions are kept simple and focused with helper function extraction
+- **Code Duplication**: Boilerplate patterns are extracted into reusable helper functions
+
+### Recent Improvements
+
+- Fixed 4 High severity SonarQube issues (string duplication and cognitive complexity)
+- Extracted common tool creation patterns to reduce code duplication
+- Centralized error message constants for consistency
+
 ## Library Usage
 
 The exported Go API of this module should currently be considered unstable, and subject to breaking changes. In the future, we may offer stability; please file an issue if there is a use case where this would be valuable.

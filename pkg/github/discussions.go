@@ -31,8 +31,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			mcp.WithString("category",
 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
 			),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		), func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			// Required params
 			owner, err := RequiredParam[string](request, "owner")
 			if err != nil {

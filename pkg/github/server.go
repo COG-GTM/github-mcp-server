@@ -1,10 +1,15 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
+	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -223,4 +228,188 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+type ToolConfig struct {
+	Name        string
+	Description string
+	Title       string
+	ReadOnly    bool
+	Parameters  []ParameterConfig
+	Handler     ToolHandlerConfig
+}
+
+type ParameterConfig struct {
+	Name        string
+	Type        string
+	Required    bool
+	Description string
+	Enum        []string
+}
+
+type ToolHandlerConfig struct {
+	APICall           func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error)
+	ErrorPrefix       string
+	ReturnGoErrors    bool // If true, return (nil, error) instead of (*mcp.CallToolResult, nil) for API errors
+}
+
+func CreateGitHubTool(getClient GetClientFn, _ translations.TranslationHelperFunc, config ToolConfig) (mcp.Tool, server.ToolHandlerFunc) {
+	options := []mcp.ToolOption{
+		mcp.WithDescription(config.Description),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:        config.Title,
+			ReadOnlyHint: ToBoolPtr(config.ReadOnly),
+		}),
+	}
+
+	for _, param := range config.Parameters {
+		switch param.Type {
+		case "string":
+			paramOpts := []mcp.PropertyOption{mcp.Description(param.Description)}
+			if param.Required {
+				paramOpts = append(paramOpts, mcp.Required())
+			}
+			if len(param.Enum) > 0 {
+				paramOpts = append(paramOpts, mcp.Enum(param.Enum...))
+			}
+			options = append(options, mcp.WithString(param.Name, paramOpts...))
+		case "number":
+			paramOpts := []mcp.PropertyOption{mcp.Description(param.Description)}
+			if param.Required {
+				paramOpts = append(paramOpts, mcp.Required())
+			}
+			options = append(options, mcp.WithNumber(param.Name, paramOpts...))
+		case "boolean":
+			paramOpts := []mcp.PropertyOption{mcp.Description(param.Description)}
+			if param.Required {
+				paramOpts = append(paramOpts, mcp.Required())
+			}
+			options = append(options, mcp.WithBoolean(param.Name, paramOpts...))
+		}
+	}
+
+	if needsPagination(config.Name) {
+		options = append(options, WithPagination())
+	}
+
+	handler := func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		params := make(map[string]interface{})
+		for _, paramConfig := range config.Parameters {
+			if paramConfig.Required {
+				switch paramConfig.Type {
+				case "string":
+					value, err := RequiredParam[string](request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					params[paramConfig.Name] = value
+				case "number":
+					value, err := RequiredInt(request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					params[paramConfig.Name] = value
+				case "boolean":
+					value, err := RequiredParam[bool](request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					params[paramConfig.Name] = value
+				}
+			} else {
+				switch paramConfig.Type {
+				case "string":
+					value, err := OptionalParam[string](request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					if value != "" {
+						params[paramConfig.Name] = value
+					}
+				case "number":
+					value, err := OptionalIntParam(request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					if value != 0 {
+						params[paramConfig.Name] = value
+					}
+				case "boolean":
+					value, err := OptionalParam[bool](request, paramConfig.Name)
+					if err != nil {
+						return mcp.NewToolResultError(err.Error()), nil
+					}
+					params[paramConfig.Name] = value
+				}
+			}
+		}
+
+		if needsPagination(config.Name) {
+			if err := extractPaginationFromParams(request, params); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub client: %v", err)), nil
+		}
+
+		result, resp, err := config.Handler.APICall(ctx, client, params)
+		if err != nil {
+			if config.Handler.ReturnGoErrors {
+				return nil, fmt.Errorf("%s: %w", config.Handler.ErrorPrefix, err)
+			}
+			return ghErrors.NewGitHubAPIErrorResponse(ctx, config.Handler.ErrorPrefix, resp, err), nil
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+			}
+			return mcp.NewToolResultError(fmt.Sprintf("%s: %s", config.Handler.ErrorPrefix, string(body))), nil
+		}
+
+		r, err := json.Marshal(result)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+		}
+		return mcp.NewToolResultText(string(r)), nil
+	}
+
+	return mcp.NewTool(config.Name, options...), handler
+}
+
+func needsPagination(toolName string) bool {
+	paginatedTools := map[string]bool{
+		"search_issues":               true,
+		"list_issues":                 true,
+		"list_commits":                true,
+		"list_releases":               true,
+		"list_tags":                   true,
+		"search_repositories":         true,
+		"search_users":                true,
+		"search_organizations":        true,
+		"list_notifications":          true,
+		"list_pull_requests":          true,
+		"search_pull_requests":        true,
+		"list_pull_request_comments":  true,
+	}
+	return paginatedTools[toolName]
+}
+
+func extractPaginationFromParams(request mcp.CallToolRequest, params map[string]interface{}) error {
+	paginationParams, err := OptionalPaginationParams(request)
+	if err != nil {
+		return err
+	}
+	if paginationParams.page > 0 {
+		params["page"] = paginationParams.page
+	}
+	if paginationParams.perPage > 0 {
+		params["perPage"] = paginationParams.perPage
+	}
+	return nil
 }

@@ -19,68 +19,24 @@ import (
 
 // GetPullRequest creates a tool to get details of a specific pull request.
 func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
-	return mcp.NewTool("get_pull_request",
-			mcp.WithDescription(t("TOOL_GET_PULL_REQUEST_DESCRIPTION", "Get details of a specific pull request in a GitHub repository.")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_PULL_REQUEST_USER_TITLE", "Get pull request details"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithNumber("pullNumber",
-				mcp.Required(),
-				mcp.Description("Pull request number"),
-			),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pullNumber, err := RequiredInt(request, "pullNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+	config := ToolConfig{
+		Name:        "get_pull_request",
+		Description: t("TOOL_GET_PULL_REQUEST_DESCRIPTION", "Get details of a specific pull request in a GitHub repository."),
+		Title:       t("TOOL_GET_PULL_REQUEST_USER_TITLE", "Get pull request details"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "Repository owner"},
+			{Name: "repo", Type: "string", Required: true, Description: "Repository name"},
+			{Name: "pullNumber", Type: "number", Required: true, Description: "Pull request number"},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				return client.PullRequests.Get(ctx, params["owner"].(string), params["repo"].(string), params["pullNumber"].(int))
+			},
+			ErrorPrefix: "failed to get pull request",
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 // CreatePullRequest creates a tool to create a new pull request.
@@ -188,14 +144,14 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create pull request: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(pr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -313,14 +269,14 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(pr)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -426,14 +382,14 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list pull requests: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(prs)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -519,14 +475,14 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to merge pull request: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -639,14 +595,14 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(files)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -705,7 +661,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
 			}
@@ -724,14 +680,14 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get combined status: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(status)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -806,14 +762,14 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 			if resp.StatusCode != http.StatusAccepted {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request branch: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -878,14 +834,14 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request comments: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(comments)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -944,14 +900,14 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request reviews: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(reviews)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -1625,7 +1581,7 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request diff: %s", string(body))), nil
 			}
@@ -1703,7 +1659,7 @@ func RequestCopilotReview(getClient GetClientFn, t translations.TranslationHelpe
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to request copilot review: %s", string(body))), nil
 			}
