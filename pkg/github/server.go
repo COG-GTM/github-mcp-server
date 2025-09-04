@@ -1,13 +1,17 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
@@ -223,4 +227,68 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+type StandardToolParams struct {
+	Owner string
+	Repo  string
+}
+
+func ExtractStandardParams(request mcp.CallToolRequest) (*StandardToolParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+
+	return &StandardToolParams{
+		Owner: owner,
+		Repo:  repo,
+	}, nil
+}
+
+func CreateStandardToolBase(description, title string, readOnly bool) []mcp.ToolOption {
+	options := []mcp.ToolOption{
+		mcp.WithDescription(description),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:        title,
+			ReadOnlyHint: ToBoolPtr(readOnly),
+		}),
+		mcp.WithString("owner",
+			mcp.Required(),
+			mcp.Description("The owner of the repository."),
+		),
+		mcp.WithString("repo",
+			mcp.Required(),
+			mcp.Description("The name of the repository."),
+		),
+	}
+	return options
+}
+
+func HandleStandardAPIError(ctx context.Context, resp *github.Response, err error, operation string) (*mcp.CallToolResult, error) {
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx, operation, resp, err), nil
+	}
+	return nil, nil
+}
+
+func HandleHTTPError(resp *github.Response, operation string) (*mcp.CallToolResult, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+	}
+	return mcp.NewToolResultError(fmt.Sprintf("%s: %s", operation, string(body))), nil
+}
+
+func MarshalResponse(data interface{}) (*mcp.CallToolResult, error) {
+	r, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
 }
