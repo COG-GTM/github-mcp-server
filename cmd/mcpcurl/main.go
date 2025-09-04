@@ -153,52 +153,63 @@ var (
 )
 
 func main() {
-	rootCmd.AddCommand(schemaCmd)
+	setupCommands()
+	setupFlags()
 
-	// Add global flag for stdio server command
-	rootCmd.PersistentFlags().String("stdio-server-cmd", "", "Shell command to invoke MCP server via stdio (required)")
-	_ = rootCmd.MarkPersistentFlagRequired("stdio-server-cmd")
-
-	// Add global flag for pretty printing
-	rootCmd.PersistentFlags().Bool("pretty", true, "Pretty print MCP response (only for JSON or JSONL responses)")
-
-	// Add the tools command to the root command
-	rootCmd.AddCommand(toolsCmd)
-
-	// Execute the root command once to parse flags
-	_ = rootCmd.ParseFlags(os.Args[1:])
-
-	// Get pretty flag
 	prettyPrint, err := rootCmd.Flags().GetBool("pretty")
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error getting pretty flag: %v\n", err)
 		os.Exit(1)
 	}
-	// Get server command
-	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
-	if err == nil && serverCmd != "" {
-		// Fetch schema from server
-		jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
-		if err == nil {
-			response, err := executeServerCommand(serverCmd, jsonRequest)
-			if err == nil {
-				// Parse the schema response
-				var schemaResp SchemaResponse
-				if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
-					// Add all the generated commands as subcommands of tools
-					for _, tool := range schemaResp.Result.Tools {
-						addCommandFromTool(toolsCmd, &tool, prettyPrint)
-					}
-				}
-			}
-		}
+
+	if err := loadDynamicTools(prettyPrint); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to load dynamic tools: %v\n", err)
 	}
 
-	// Execute
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func setupCommands() {
+	rootCmd.AddCommand(schemaCmd)
+	rootCmd.AddCommand(toolsCmd)
+}
+
+func setupFlags() {
+	rootCmd.PersistentFlags().String("stdio-server-cmd", "", "Shell command to invoke MCP server via stdio (required)")
+	_ = rootCmd.MarkPersistentFlagRequired("stdio-server-cmd")
+	rootCmd.PersistentFlags().Bool("pretty", true, "Pretty print MCP response (only for JSON or JSONL responses)")
+	_ = rootCmd.ParseFlags(os.Args[1:])
+}
+
+func loadDynamicTools(prettyPrint bool) error {
+	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
+	if err != nil || serverCmd == "" {
+		return nil // No server command provided, skip dynamic loading
+	}
+
+	jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
+	if err != nil {
+		return err
+	}
+
+	response, err := executeServerCommand(serverCmd, jsonRequest)
+	if err != nil {
+		return err
+	}
+
+	var schemaResp SchemaResponse
+	if err := json.Unmarshal([]byte(response), &schemaResp); err != nil {
+		return err
+	}
+
+	for _, tool := range schemaResp.Result.Tools {
+		addCommandFromTool(toolsCmd, &tool, prettyPrint)
+	}
+
+	return nil
 }
 
 // addCommandFromTool creates a cobra command from a tool schema
