@@ -15,64 +15,29 @@ import (
 
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("search_repositories",
-			mcp.WithDescription(t("TOOL_SEARCH_REPOSITORIES_DESCRIPTION", "Search for GitHub repositories")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_SEARCH_REPOSITORIES_USER_TITLE", "Search repositories"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("query",
-				mcp.Required(),
-				mcp.Description("Search query"),
-			),
-			WithPagination(),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			query, err := RequiredParam[string](request, "query")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts := &github.SearchOptions{
-				ListOptions: github.ListOptions{
-					Page:    pagination.page,
-					PerPage: pagination.perPage,
-				},
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			result, resp, err := client.Search.Repositories(ctx, query, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to search repositories with query '%s'", query),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+	config := ToolConfig{
+		Name:        "search_repositories",
+		Description: t("TOOL_SEARCH_REPOSITORIES_DESCRIPTION", "Search for GitHub repositories"),
+		Title:       t("TOOL_SEARCH_REPOSITORIES_USER_TITLE", "Search repositories"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "query", Type: "string", Required: true, Description: "Search query"},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				opts := &github.SearchOptions{}
+				if page, ok := params["page"].(int); ok {
+					opts.ListOptions.Page = page
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+				if perPage, ok := params["perPage"].(int); ok {
+					opts.ListOptions.PerPage = perPage
+				}
+				return client.Search.Repositories(ctx, params["query"].(string), opts)
+			},
+			ErrorPrefix: "failed to search repositories",
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 // SearchCode creates a tool to search for code across GitHub repositories.

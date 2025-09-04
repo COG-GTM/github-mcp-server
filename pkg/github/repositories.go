@@ -20,78 +20,31 @@ import (
 )
 
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_commit",
-			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_COMMITS_USER_TITLE", "Get commit details"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithString("sha",
-				mcp.Required(),
-				mcp.Description("Commit SHA, branch name, or tag name"),
-			),
-			WithPagination(),
-		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := RequiredParam[string](request, "sha")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts := &github.ListOptions{
-				Page:    pagination.page,
-				PerPage: pagination.perPage,
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to get commit: %s", sha),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+	config := ToolConfig{
+		Name:        "get_commit",
+		Description: t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository"),
+		Title:       t("TOOL_GET_COMMITS_USER_TITLE", "Get commit details"),
+		ReadOnly:    true,
+		Parameters: []ParameterConfig{
+			{Name: "owner", Type: "string", Required: true, Description: "Repository owner"},
+			{Name: "repo", Type: "string", Required: true, Description: "Repository name"},
+			{Name: "sha", Type: "string", Required: true, Description: "Commit SHA, branch name, or tag name"},
+		},
+		Handler: ToolHandlerConfig{
+			APICall: func(ctx context.Context, client *github.Client, params map[string]interface{}) (interface{}, *github.Response, error) {
+				opts := &github.ListOptions{}
+				if page, ok := params["page"].(int); ok {
+					opts.Page = page
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(commit)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+				if perPage, ok := params["perPage"].(int); ok {
+					opts.PerPage = perPage
+				}
+				return client.Repositories.GetCommit(ctx, params["owner"].(string), params["repo"].(string), params["sha"].(string), opts)
+			},
+			ErrorPrefix: "failed to get commit",
+		},
+	}
+	return CreateGitHubTool(getClient, t, config)
 }
 
 // ListCommits creates a tool to get commits of a branch in a repository.
