@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
@@ -17,6 +18,51 @@ const (
 	errFailedToReadResponseBody = "failed to read response body: %w"
 	errFailedToMarshalResponse  = "failed to marshal response: %w"
 )
+
+func handleSearchResponse(resp *github.Response, result interface{}, operation string) (*mcp.CallToolResult, error) {
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(errFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to %s: %s", operation, string(body))), nil
+	}
+
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToMarshalResponse, err)
+	}
+
+	return mcp.NewToolResultText(string(r)), nil
+}
+
+func buildUserOrgSearchTool(toolName, accountType string, t translations.TranslationHelperFunc) mcp.Tool {
+	descKey := fmt.Sprintf("TOOL_SEARCH_%sS_DESCRIPTION", strings.ToUpper(accountType))
+	titleKey := fmt.Sprintf("TOOL_SEARCH_%sS_USER_TITLE", strings.ToUpper(accountType))
+
+	return mcp.NewTool(toolName,
+		mcp.WithDescription(t(descKey, fmt.Sprintf("Search for GitHub %ss exclusively", accountType))),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:        t(titleKey, fmt.Sprintf("Search %ss", accountType)),
+			ReadOnlyHint: ToBoolPtr(true),
+		}),
+		mcp.WithString("query",
+			mcp.Required(),
+			mcp.Description(fmt.Sprintf("Search query using GitHub %ss search syntax scoped to type:%s", accountType, accountType)),
+		),
+		mcp.WithString("sort",
+			mcp.Description("Sort field by category"),
+			mcp.Enum("followers", "repositories", "joined"),
+		),
+		mcp.WithString("order",
+			mcp.Description("Sort order"),
+			mcp.Enum("asc", "desc"),
+		),
+		WithPagination(),
+	)
+}
 
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -61,22 +107,8 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 					err,
 				), nil
 			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(errFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return handleSearchResponse(resp, result, "search repositories")
 		}
 }
 
@@ -141,22 +173,8 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 					err,
 				), nil
 			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(errFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return handleSearchResponse(resp, result, "search code")
 		}
 }
 
@@ -306,48 +324,10 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 // SearchUsers creates a tool to search for GitHub users.
 func SearchUsers(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("search_users",
-		mcp.WithDescription(t("TOOL_SEARCH_USERS_DESCRIPTION", "Search for GitHub users exclusively")),
-		mcp.WithToolAnnotation(mcp.ToolAnnotation{
-			Title:        t("TOOL_SEARCH_USERS_USER_TITLE", "Search users"),
-			ReadOnlyHint: ToBoolPtr(true),
-		}),
-		mcp.WithString("query",
-			mcp.Required(),
-			mcp.Description("Search query using GitHub users search syntax scoped to type:user"),
-		),
-		mcp.WithString("sort",
-			mcp.Description("Sort field by category"),
-			mcp.Enum("followers", "repositories", "joined"),
-		),
-		mcp.WithString("order",
-			mcp.Description("Sort order"),
-			mcp.Enum("asc", "desc"),
-		),
-		WithPagination(),
-	), userOrOrgHandler("user", getClient)
+	return buildUserOrgSearchTool("search_users", "user", t), userOrOrgHandler("user", getClient)
 }
 
 // SearchOrgs creates a tool to search for GitHub organizations.
 func SearchOrgs(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("search_orgs",
-		mcp.WithDescription(t("TOOL_SEARCH_ORGS_DESCRIPTION", "Search for GitHub organizations exclusively")),
-		mcp.WithToolAnnotation(mcp.ToolAnnotation{
-			Title:        t("TOOL_SEARCH_ORGS_USER_TITLE", "Search organizations"),
-			ReadOnlyHint: ToBoolPtr(true),
-		}),
-		mcp.WithString("query",
-			mcp.Required(),
-			mcp.Description("Search query using GitHub organizations search syntax scoped to type:org"),
-		),
-		mcp.WithString("sort",
-			mcp.Description("Sort field by category"),
-			mcp.Enum("followers", "repositories", "joined"),
-		),
-		mcp.WithString("order",
-			mcp.Description("Sort order"),
-			mcp.Enum("asc", "desc"),
-		),
-		WithPagination(),
-	), userOrOrgHandler("org", getClient)
+	return buildUserOrgSearchTool("search_orgs", "org", t), userOrOrgHandler("org", getClient)
 }
