@@ -130,7 +130,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
 			}
@@ -138,7 +138,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			// Marshal response to JSON
 			r, err := json.Marshal(notifications)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -203,13 +203,47 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to mark notification as %s: %s", state, string(body))), nil
 			}
 
 			return mcp.NewToolResultText(fmt.Sprintf("Notification marked as %s", state)), nil
 		}
+}
+
+// parseLastReadTime parses the lastReadAt parameter and returns a time.Time
+func parseLastReadTime(lastReadAt string) (time.Time, error) {
+	if lastReadAt == "" {
+		return time.Now(), nil
+	}
+	
+	lastReadTime, err := time.Parse(time.RFC3339, lastReadAt)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)
+	}
+	return lastReadTime, nil
+}
+
+func markNotificationsReadAPI(ctx context.Context, client *github.Client, owner, repo string, markReadOptions github.Timestamp) (*github.Response, error) {
+	if owner != "" && repo != "" {
+		return client.Activity.MarkRepositoryNotificationsRead(ctx, owner, repo, markReadOptions)
+	}
+	return client.Activity.MarkNotificationsRead(ctx, markReadOptions)
+}
+
+func handleMarkReadResponse(resp *github.Response) (*mcp.CallToolResult, error) {
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
+	}
+
+	return mcp.NewToolResultText("All notifications marked as read"), nil
 }
 
 // MarkAllNotificationsRead creates a tool to mark all notifications as read.
@@ -250,26 +284,16 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var lastReadTime time.Time
-			if lastReadAt != "" {
-				lastReadTime, err = time.Parse(time.RFC3339, lastReadAt)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-			} else {
-				lastReadTime = time.Now()
+			lastReadTime, err := parseLastReadTime(lastReadAt)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
 			markReadOptions := github.Timestamp{
 				Time: lastReadTime,
 			}
 
-			var resp *github.Response
-			if owner != "" && repo != "" {
-				resp, err = client.Activity.MarkRepositoryNotificationsRead(ctx, owner, repo, markReadOptions)
-			} else {
-				resp, err = client.Activity.MarkNotificationsRead(ctx, markReadOptions)
-			}
+			resp, err := markNotificationsReadAPI(ctx, client, owner, repo, markReadOptions)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to mark all notifications as read",
@@ -277,17 +301,8 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 					err,
 				), nil
 			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
-			}
-
-			return mcp.NewToolResultText("All notifications marked as read"), nil
+			return handleMarkReadResponse(resp)
 		}
 }
 
@@ -328,14 +343,14 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get notification details: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(thread)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -422,7 +437,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}
@@ -518,7 +533,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}
