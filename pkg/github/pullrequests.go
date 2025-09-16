@@ -67,19 +67,10 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "failed to get pull request")
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalJSONResponse(pr)
 		}
 }
 

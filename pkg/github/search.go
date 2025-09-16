@@ -2,9 +2,7 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 
 	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
@@ -59,20 +57,11 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
-			}
+		if resp.StatusCode != 200 {
+			return HandleHTTPError(resp, "failed to search repositories")
+		}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalJSONResponse(result)
 		}
 }
 
@@ -139,20 +128,11 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
-			}
+		if resp.StatusCode != 200 {
+			return HandleHTTPError(resp, "failed to search code")
+		}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+		return MarshalJSONResponse(result)
 		}
 }
 
@@ -214,11 +194,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != 200 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-			}
-			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
+			return HandleHTTPError(resp, fmt.Sprintf("failed to search %ss", accountType))
 		}
 
 		minimalUsers := make([]MinimalUser, 0, len(result.Users))
@@ -250,11 +226,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			minimalResp.IncompleteResults = *result.IncompleteResults
 		}
 
-		r, err := json.Marshal(minimalResp)
-		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-		}
-		return mcp.NewToolResultText(string(r)), nil
+		return MarshalJSONResponse(minimalResp)
 	}
 }
 
