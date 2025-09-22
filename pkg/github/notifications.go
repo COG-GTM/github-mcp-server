@@ -51,7 +51,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			filter, err := OptionalParam[string](request, "filter")
@@ -162,7 +162,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getclient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			threadID, err := RequiredParam[string](request, "threadID")
@@ -233,7 +233,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			lastReadAt, err := OptionalParam[string](request, "lastReadAt")
@@ -307,7 +307,7 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -349,6 +349,22 @@ const (
 	NotificationActionDelete = "delete"
 )
 
+func handleNotificationSubscriptionAction(ctx context.Context, client *github.Client, notificationID, action string) (result any, resp *github.Response, err error) {
+	switch action {
+	case NotificationActionIgnore:
+		sub := &github.Subscription{Ignored: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionWatch:
+		sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionDelete:
+		resp, err := client.Activity.DeleteThreadSubscription(ctx, notificationID)
+		return nil, resp, err
+	default:
+		return nil, nil, fmt.Errorf("Invalid action. Must be one of: ignore, watch, delete.")
+	}
+}
+
 // ManageNotificationSubscription creates a tool to manage a notification subscription (ignore, watch, delete)
 func ManageNotificationSubscription(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("manage_notification_subscription",
@@ -370,7 +386,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -382,26 +398,11 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var (
-				resp   *github.Response
-				result any
-				apiErr error
-			)
-
-			switch action {
-			case NotificationActionIgnore:
-				sub := &github.Subscription{Ignored: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionWatch:
-				sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionDelete:
-				resp, apiErr = client.Activity.DeleteThreadSubscription(ctx, notificationID)
-			default:
-				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
-			}
-
+			result, resp, apiErr := handleNotificationSubscriptionAction(ctx, client, notificationID, action)
 			if apiErr != nil {
+				if resp == nil {
+					return mcp.NewToolResultError(apiErr.Error()), nil
+				}
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					fmt.Sprintf("failed to %s notification subscription", action),
 					resp,
@@ -416,7 +417,6 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 			}
 
 			if action == NotificationActionDelete {
-				// Special case for delete as there is no response body
 				return mcp.NewToolResultText("Notification subscription deleted"), nil
 			}
 
@@ -459,7 +459,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			owner, err := RequiredParam[string](request, "owner")
