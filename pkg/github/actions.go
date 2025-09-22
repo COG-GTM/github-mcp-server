@@ -72,24 +72,9 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 
 // ListWorkflowRuns creates a tool to list workflow runs for a specific workflow
 func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("list_workflow_runs",
-			mcp.WithDescription(t("TOOL_LIST_WORKFLOW_RUNS_DESCRIPTION", "List workflow runs for a specific workflow")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_LIST_WORKFLOW_RUNS_USER_TITLE", "List workflow runs"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithString("workflow_id",
-				mcp.Required(),
-				mcp.Description("The workflow ID or workflow file name"),
-			),
+	return CreateWorkflowIDTool("list_workflow_runs",
+			t("TOOL_LIST_WORKFLOW_RUNS_DESCRIPTION", "List workflow runs for a specific workflow"),
+			t("TOOL_LIST_WORKFLOW_RUNS_USER_TITLE", "List workflow runs"),
 			mcp.WithString("actor",
 				mcp.Description("Returns someone's workflow runs. Use the login for the user who created the workflow run."),
 			),
@@ -140,41 +125,37 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 			WithPaginationPerPage(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			workflowID, err := RequiredParam[string](request, "workflow_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, workflowID, err := ValidateWorkflowIDParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			// Get optional filtering parameters
 			actor, err := OptionalParam[string](request, "actor")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			branch, err := OptionalParam[string](request, "branch")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			event, err := OptionalParam[string](request, "event")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			status, err := OptionalParam[string](request, "status")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			// Get optional pagination parameters
 			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			client, err := GetClientWithError(ctx, getClient)
@@ -306,35 +287,15 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 // GetWorkflowRun creates a tool to get details of a specific workflow run
 func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_workflow_run",
-			mcp.WithDescription(t("TOOL_GET_WORKFLOW_RUN_DESCRIPTION", "Get details of a specific workflow run")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_WORKFLOW_RUN_USER_TITLE", "Get workflow run"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+	return CreateWorkflowTool("get_workflow_run",
+			t("TOOL_GET_WORKFLOW_RUN_DESCRIPTION", "Get details of a specific workflow run"),
+			t("TOOL_GET_WORKFLOW_RUN_USER_TITLE", "Get workflow run"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
@@ -358,35 +319,15 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 // GetWorkflowRunLogs creates a tool to download logs for a specific workflow run
 func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_workflow_run_logs",
-			mcp.WithDescription(t("TOOL_GET_WORKFLOW_RUN_LOGS_DESCRIPTION", "Download logs for a specific workflow run (EXPENSIVE: downloads ALL logs as ZIP. Consider using get_job_logs with failed_only=true for debugging failed jobs)")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_WORKFLOW_RUN_LOGS_USER_TITLE", "Get workflow run logs"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+	return CreateWorkflowTool("get_workflow_run_logs",
+			t("TOOL_GET_WORKFLOW_RUN_LOGS_DESCRIPTION", "Download logs for a specific workflow run (EXPENSIVE: downloads ALL logs as ZIP. Consider using get_job_logs with failed_only=true for debugging failed jobs)"),
+			t("TOOL_GET_WORKFLOW_RUN_LOGS_USER_TITLE", "Get workflow run logs"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
@@ -420,14 +361,9 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 
 // ListWorkflowJobs creates a tool to list jobs for a specific workflow run
 func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("list_workflow_jobs",
-			mcp.WithDescription(t("TOOL_LIST_WORKFLOW_JOBS_DESCRIPTION", "List jobs for a specific workflow run")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_LIST_WORKFLOW_JOBS_USER_TITLE", "List workflow jobs"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			WithOwnerRepo(),
-			WithWorkflowRunID(),
+	return CreateWorkflowTool("list_workflow_jobs",
+			t("TOOL_LIST_WORKFLOW_JOBS_DESCRIPTION", "List jobs for a specific workflow run"),
+			t("TOOL_LIST_WORKFLOW_JOBS_USER_TITLE", "List workflow jobs"),
 			mcp.WithString("filter",
 				mcp.Description("Filters jobs by their completed_at timestamp"),
 				mcp.Enum("latest", "all"),
@@ -435,30 +371,25 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 			WithPaginationPerPage(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			// Get optional filtering parameters
 			filter, err := OptionalParam[string](request, "filter")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			// Get optional pagination parameters
 			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			client, err := GetClientWithError(ctx, getClient)
@@ -757,29 +688,14 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 				Title:        t("TOOL_RERUN_WORKFLOW_RUN_USER_TITLE", "Rerun workflow run"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+			WithOwnerRepo(),
+			WithWorkflowRunID(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
@@ -875,29 +791,14 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 				Title:        t("TOOL_CANCEL_WORKFLOW_RUN_USER_TITLE", "Cancel workflow run"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+			WithOwnerRepo(),
+			WithWorkflowRunID(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
@@ -928,35 +829,25 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 
 // ListWorkflowRunArtifacts creates a tool to list artifacts for a workflow run
 func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("list_workflow_run_artifacts",
-			mcp.WithDescription(t("TOOL_LIST_WORKFLOW_RUN_ARTIFACTS_DESCRIPTION", "List artifacts for a workflow run")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_LIST_WORKFLOW_RUN_ARTIFACTS_USER_TITLE", "List workflow artifacts"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			WithOwnerRepo(),
-			WithWorkflowRunID(),
+	return CreateWorkflowTool("list_workflow_run_artifacts",
+			t("TOOL_LIST_WORKFLOW_RUN_ARTIFACTS_DESCRIPTION", "List artifacts for a workflow run"),
+			t("TOOL_LIST_WORKFLOW_RUN_ARTIFACTS_USER_TITLE", "List workflow artifacts"),
 			WithPaginationPerPage(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			// Get optional pagination parameters
 			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 
 			client, err := GetClientWithError(ctx, getClient)
@@ -987,20 +878,10 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 
 // DownloadWorkflowRunArtifact creates a tool to download a workflow run artifact
 func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("download_workflow_run_artifact",
-			mcp.WithDescription(t("TOOL_DOWNLOAD_WORKFLOW_RUN_ARTIFACT_DESCRIPTION", "Get download URL for a workflow run artifact")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_DOWNLOAD_WORKFLOW_RUN_ARTIFACT_USER_TITLE", "Download workflow artifact"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
+	return CreateBasicTool("download_workflow_run_artifact",
+			t("TOOL_DOWNLOAD_WORKFLOW_RUN_ARTIFACT_DESCRIPTION", "Get download URL for a workflow run artifact"),
+			t("TOOL_DOWNLOAD_WORKFLOW_RUN_ARTIFACT_USER_TITLE", "Download workflow artifact"),
+			true,
 			mcp.WithNumber("artifact_id",
 				mcp.Required(),
 				mcp.Description("The unique identifier of the artifact"),
@@ -1008,12 +889,12 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			artifactIDInt, err := RequiredInt(request, "artifact_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
 			artifactID := int64(artifactIDInt)
 
@@ -1055,29 +936,14 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 				ReadOnlyHint:    ToBoolPtr(false),
 				DestructiveHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+			WithOwnerRepo(),
+			WithWorkflowRunID(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
@@ -1108,35 +974,15 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 
 // GetWorkflowRunUsage creates a tool to get usage metrics for a workflow run
 func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
-	return mcp.NewTool("get_workflow_run_usage",
-			mcp.WithDescription(t("TOOL_GET_WORKFLOW_RUN_USAGE_DESCRIPTION", "Get usage metrics for a workflow run")),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:        t("TOOL_GET_WORKFLOW_RUN_USAGE_USER_TITLE", "Get workflow usage"),
-				ReadOnlyHint: ToBoolPtr(true),
-			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(ParamRepositoryName),
-			),
-			mcp.WithNumber("run_id",
-				mcp.Required(),
-				mcp.Description(ParamWorkflowRunID),
-			),
+	return CreateWorkflowTool("get_workflow_run_usage",
+			t("TOOL_GET_WORKFLOW_RUN_USAGE_DESCRIPTION", "Get usage metrics for a workflow run"),
+			t("TOOL_GET_WORKFLOW_RUN_USAGE_USER_TITLE", "Get workflow usage"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, err := ValidateOwnerRepo(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, runID, err := ValidateWorkflowParams(request)
+			if result, err := HandleStandardToolError(err); result != nil || err != nil {
+				return result, err
 			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
 
 			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
