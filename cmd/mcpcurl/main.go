@@ -16,6 +16,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	stdioServerCmdFlag = "stdio-server-cmd"
+)
+
 type (
 	// SchemaResponse represents the top-level response containing tools
 	SchemaResponse struct {
@@ -107,9 +111,9 @@ var (
 			}
 
 			// Check if the required global flag is provided
-			serverCmd, _ := cmd.Flags().GetString("stdio-server-cmd")
+			serverCmd, _ := cmd.Flags().GetString(stdioServerCmdFlag)
 			if serverCmd == "" {
-				return fmt.Errorf("--stdio-server-cmd is required")
+				return fmt.Errorf("--%s is required", stdioServerCmdFlag)
 			}
 			return nil
 		},
@@ -121,9 +125,9 @@ var (
 		Short: "Fetch schema from MCP server",
 		Long:  "Fetches the tools schema from the MCP server specified by --stdio-server-cmd",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			serverCmd, _ := cmd.Flags().GetString("stdio-server-cmd")
+			serverCmd, _ := cmd.Flags().GetString(stdioServerCmdFlag)
 			if serverCmd == "" {
-				return fmt.Errorf("--stdio-server-cmd is required")
+				return fmt.Errorf("--%s is required", stdioServerCmdFlag)
 			}
 
 			// Build the JSON-RPC request for tools/list
@@ -156,8 +160,8 @@ func main() {
 	rootCmd.AddCommand(schemaCmd)
 
 	// Add global flag for stdio server command
-	rootCmd.PersistentFlags().String("stdio-server-cmd", "", "Shell command to invoke MCP server via stdio (required)")
-	_ = rootCmd.MarkPersistentFlagRequired("stdio-server-cmd")
+	rootCmd.PersistentFlags().String(stdioServerCmdFlag, "", "Shell command to invoke MCP server via stdio (required)")
+	_ = rootCmd.MarkPersistentFlagRequired(stdioServerCmdFlag)
 
 	// Add global flag for pretty printing
 	rootCmd.PersistentFlags().Bool("pretty", true, "Pretty print MCP response (only for JSON or JSONL responses)")
@@ -175,29 +179,31 @@ func main() {
 		os.Exit(1)
 	}
 	// Get server command
-	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
+	serverCmd, err := rootCmd.Flags().GetString(stdioServerCmdFlag)
 	if err == nil && serverCmd != "" {
-		// Fetch schema from server
-		jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
-		if err == nil {
-			response, err := executeServerCommand(serverCmd, jsonRequest)
-			if err == nil {
-				// Parse the schema response
-				var schemaResp SchemaResponse
-				if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
-					// Add all the generated commands as subcommands of tools
-					for _, tool := range schemaResp.Result.Tools {
-						addCommandFromTool(toolsCmd, &tool, prettyPrint)
-					}
-				}
-			}
-		}
+		loadSchemaAndAddCommands(serverCmd, prettyPrint)
 	}
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// loadSchemaAndAddCommands fetches schema from server and adds tool commands
+func loadSchemaAndAddCommands(serverCmd string, prettyPrint bool) {
+	jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
+	if err == nil {
+		response, err := executeServerCommand(serverCmd, jsonRequest)
+		if err == nil {
+			var schemaResp SchemaResponse
+			if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
+				for _, tool := range schemaResp.Result.Tools {
+					addCommandFromTool(toolsCmd, &tool, prettyPrint)
+				}
+			}
+		}
 	}
 }
 
@@ -222,9 +228,9 @@ func addCommandFromTool(toolsCmd *cobra.Command, tool *Tool, prettyPrint bool) {
 			}
 
 			// Execute the server command
-			serverCmd, err := cmd.Flags().GetString("stdio-server-cmd")
+			serverCmd, err := cmd.Flags().GetString(stdioServerCmdFlag)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to get stdio-server-cmd: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "failed to get %s: %v\n", stdioServerCmdFlag, err)
 				return
 			}
 			response, err := executeServerCommand(serverCmd, jsonData)
