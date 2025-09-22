@@ -2,10 +2,7 @@ package github
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
-	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -34,39 +31,20 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			alertNumber, err := RequiredInt(request, "alertNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-
-			alert, resp, err := client.SecretScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to get alert with number '%d'", alertNumber),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				return HandleHTTPError(resp, "get alert")
-			}
-
-			return MarshalledTextResult(alert), nil
+			return ExecuteWithClientAndValidation(
+				ctx,
+				getClient,
+				request,
+				func(req mcp.CallToolRequest) error {
+					_, _, _, err := ValidateOwnerRepoAlert(req)
+					return err
+				},
+				func(ctx context.Context, client *github.Client) (*github.SecretScanningAlert, *github.Response, error) {
+					owner, repo, alertNumber, _ := ValidateOwnerRepoAlert(request)
+					return client.SecretScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
+				},
+				"get alert",
+			)
 		}
 }
 
@@ -99,45 +77,22 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			state, err := OptionalParam[string](request, "state")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			secretType, err := OptionalParam[string](request, "secret_type")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			resolution, err := OptionalParam[string](request, "resolution")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-			alerts, resp, err := client.SecretScanning.ListAlertsForRepo(ctx, owner, repo, &github.SecretScanningAlertListOptions{State: state, SecretType: secretType, Resolution: resolution})
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to list alerts for repository '%s/%s'", owner, repo),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				return HandleHTTPError(resp, "list alerts")
-			}
-
-			return MarshalledTextResult(alerts), nil
+			return ExecuteWithClientAndValidation(
+				ctx,
+				getClient,
+				request,
+				func(req mcp.CallToolRequest) error {
+					_, _, err := ValidateOwnerRepo(req)
+					return err
+				},
+				func(ctx context.Context, client *github.Client) ([]*github.SecretScanningAlert, *github.Response, error) {
+					owner, repo, _ := ValidateOwnerRepo(request)
+					state, _ := OptionalParam[string](request, "state")
+					secretType, _ := OptionalParam[string](request, "secret_type")
+					resolution, _ := OptionalParam[string](request, "resolution")
+					return client.SecretScanning.ListAlertsForRepo(ctx, owner, repo, &github.SecretScanningAlertListOptions{State: state, SecretType: secretType, Resolution: resolution})
+				},
+				"list alerts",
+			)
 		}
 }

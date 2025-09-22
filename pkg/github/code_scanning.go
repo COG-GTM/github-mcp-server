@@ -2,10 +2,7 @@ package github
 
 import (
 	"context"
-	"fmt"
-	"net/http"
 
-	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -33,39 +30,20 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			alertNumber, err := RequiredInt(request, "alertNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-
-			alert, resp, err := client.CodeScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get alert",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				return HandleHTTPError(resp, "get alert")
-			}
-
-			return MarshalledTextResult(alert), nil
+			return ExecuteWithClientAndValidation(
+				ctx,
+				getClient,
+				request,
+				func(req mcp.CallToolRequest) error {
+					_, _, _, err := ValidateOwnerRepoAlert(req)
+					return err
+				},
+				func(ctx context.Context, client *github.Client) (*github.Alert, *github.Response, error) {
+					owner, repo, alertNumber, _ := ValidateOwnerRepoAlert(request)
+					return client.CodeScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
+				},
+				"get alert",
+			)
 		}
 }
 
@@ -101,49 +79,23 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			ref, err := OptionalParam[string](request, "ref")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			state, err := OptionalParam[string](request, "state")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			severity, err := OptionalParam[string](request, "severity")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			toolName, err := OptionalParam[string](request, "tool_name")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-			alerts, resp, err := client.CodeScanning.ListAlertsForRepo(ctx, owner, repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to list alerts",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				return HandleHTTPError(resp, "list alerts")
-			}
-
-			return MarshalledTextResult(alerts), nil
+			return ExecuteWithClientAndValidation(
+				ctx,
+				getClient,
+				request,
+				func(req mcp.CallToolRequest) error {
+					_, _, err := ValidateOwnerRepo(req)
+					return err
+				},
+				func(ctx context.Context, client *github.Client) ([]*github.Alert, *github.Response, error) {
+					owner, repo, _ := ValidateOwnerRepo(request)
+					ref, _ := OptionalParam[string](request, "ref")
+					state, _ := OptionalParam[string](request, "state")
+					severity, _ := OptionalParam[string](request, "severity")
+					toolName, _ := OptionalParam[string](request, "tool_name")
+					return client.CodeScanning.ListAlertsForRepo(ctx, owner, repo, &github.AlertListOptions{Ref: ref, State: state, Severity: severity, ToolName: toolName})
+				},
+				"list alerts",
+			)
 		}
 }

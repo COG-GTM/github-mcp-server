@@ -1,11 +1,13 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -238,4 +240,62 @@ func HandleHTTPError(resp *github.Response, operation string) (*mcp.CallToolResu
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	return mcp.NewToolResultError(fmt.Sprintf("failed to %s: %s", operation, string(body))), nil
+}
+
+func ValidateOwnerRepoAlert(request mcp.CallToolRequest) (string, string, int, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", 0, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", 0, err
+	}
+	alertNumber, err := RequiredInt(request, "alertNumber")
+	if err != nil {
+		return "", "", 0, err
+	}
+	return owner, repo, alertNumber, nil
+}
+
+func ValidateOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
+func ExecuteWithClientAndValidation[T any](
+	ctx context.Context,
+	getClient GetClientFn,
+	request mcp.CallToolRequest,
+	validateParams func(mcp.CallToolRequest) error,
+	apiCall func(context.Context, *github.Client) (T, *github.Response, error),
+	operation string,
+) (*mcp.CallToolResult, error) {
+	if err := validateParams(request); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+	}
+
+	result, resp, err := apiCall(ctx, client)
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx, fmt.Sprintf("failed to %s", operation), resp, err), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		return HandleHTTPError(resp, operation)
+	}
+
+	return MarshalledTextResult(result), nil
 }
