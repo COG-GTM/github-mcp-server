@@ -19,6 +19,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	ErrFailedToGetCommit        = "failed to get commit: %s"
+	ErrFailedToCreateResourceURI = "failed to create resource URI: %w"
+	RepoURIPrefix               = "repo://"
+)
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
@@ -70,7 +76,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to get commit: %s", sha),
+					fmt.Sprintf(ErrFailedToGetCommit, sha),
 					resp,
 					err,
 				), nil
@@ -82,7 +88,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommit, string(body))), nil
 			}
 
 			r, err := json.Marshal(commit)
@@ -547,19 +553,19 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					var resourceURI string
 					switch {
 					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+						resourceURI, err = url.JoinPath(RepoURIPrefix, owner, repo, "sha", sha, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(ErrFailedToCreateResourceURI, err)
 						}
 					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
+						resourceURI, err = url.JoinPath(RepoURIPrefix, owner, repo, ref, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(ErrFailedToCreateResourceURI, err)
 						}
 					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
+						resourceURI, err = url.JoinPath(RepoURIPrefix, owner, repo, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(ErrFailedToCreateResourceURI, err)
 						}
 					}
 
@@ -774,7 +780,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommit, string(body))), nil
 			}
 
 			// Create a tree entry for the file deletion by setting SHA to nil

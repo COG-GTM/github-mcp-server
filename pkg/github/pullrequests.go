@@ -17,6 +17,12 @@ import (
 	"github.com/github/github-mcp-server/pkg/translations"
 )
 
+const (
+	ErrFailedToGetPullRequest = "failed to get pull request"
+	ErrFailedToGetCurrentUser = "failed to get current user"
+	ErrFailedToGetLatestReview = "failed to get latest review for current user"
+)
+
 // GetPullRequest creates a tool to get details of a specific pull request.
 func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request",
@@ -59,7 +65,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					ErrFailedToGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -71,7 +77,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetPullRequest+": %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(pr)
@@ -695,7 +701,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					ErrFailedToGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -707,7 +713,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetPullRequest+": %s", string(body))), nil
 			}
 
 			// Get combined status for the head SHA
@@ -1025,7 +1031,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					ErrFailedToGetPullRequest,
 					err,
 				), nil
 			}
@@ -1119,7 +1125,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					ErrFailedToGetPullRequest,
 					err,
 				), nil
 			}
@@ -1240,7 +1246,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					ErrFailedToGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1268,7 +1274,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					ErrFailedToGetLatestReview,
 					err,
 				), nil
 			}
@@ -1377,7 +1383,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					ErrFailedToGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1405,7 +1411,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					ErrFailedToGetLatestReview,
 					err,
 				), nil
 			}
@@ -1501,7 +1507,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					ErrFailedToGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1529,7 +1535,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					ErrFailedToGetLatestReview,
 					err,
 				), nil
 			}
