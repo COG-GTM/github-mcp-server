@@ -15,11 +15,11 @@
         "type": "string"
       },
       "page": {
-        "description": "Page number",
+        "description": "The page number of the results to fetch",
         "type": "number"
       },
       "per_page": {
-        "description": "Number of records per page",
+        "description": "The number of results per page (max 100)",
         "type": "number"
       },
       "repo": {

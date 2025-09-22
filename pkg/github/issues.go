@@ -39,11 +39,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -52,9 +48,9 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
@@ -105,11 +101,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -126,9 +118,9 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 				Body: github.Ptr(body),
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
 			if err != nil {
@@ -187,10 +179,7 @@ func SearchIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (
 					"updated",
 				),
 			),
-			mcp.WithString("order",
-				mcp.Description(ParamSortOrder),
-				mcp.Enum("asc", "desc"),
-			),
+			WithSortOrder(),
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -242,11 +231,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -293,9 +278,9 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				Milestone: milestoneNum,
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
 			if err != nil {
@@ -362,11 +347,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -415,9 +396,9 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				opts.ListOptions.PerPage = int(perPage)
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
 			if err != nil {
@@ -493,11 +474,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -561,9 +538,9 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				issueRequest.Milestone = &milestoneNum
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
 			if err != nil {
@@ -608,19 +585,10 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				mcp.Required(),
 				mcp.Description("Issue number"),
 			),
-			mcp.WithNumber("page",
-				mcp.Description("Page number"),
-			),
-			mcp.WithNumber("per_page",
-				mcp.Description("Number of records per page"),
-			),
+			WithPaginationPerPage(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			owner, repo, err := ValidateOwnerRepo(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -644,9 +612,9 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				},
 			}
 
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
