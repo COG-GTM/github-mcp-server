@@ -23,7 +23,7 @@
         "type": "string"
       },
       "pullNumber": {
-        "description": "Pull request number to update",
+        "description": "Pull request number",
         "type": "number"
       },
       "repo": {

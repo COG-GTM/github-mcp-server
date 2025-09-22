@@ -299,3 +299,52 @@ func ExecuteWithClientAndValidation[T any](
 
 	return MarshalledTextResult(result), nil
 }
+
+func WithOwnerParam() mcp.ToolOption {
+	return mcp.WithString("owner",
+		mcp.Required(),
+		mcp.Description("Repository owner"),
+	)
+}
+
+func WithRepoParam() mcp.ToolOption {
+	return mcp.WithString("repo",
+		mcp.Required(),
+		mcp.Description("Repository name"),
+	)
+}
+
+func WithPullNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("pullNumber",
+		mcp.Required(),
+		mcp.Description("Pull request number"),
+	)
+}
+
+func WithIssueNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("issue_number",
+		mcp.Required(),
+		mcp.Description("Issue number"),
+	)
+}
+
+func WithAlertNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("alertNumber",
+		mcp.Required(),
+		mcp.Description("Alert number"),
+	)
+}
+
+func WithDiscussionNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("discussionNumber",
+		mcp.Required(),
+		mcp.Description("Discussion number"),
+	)
+}
+
+func WithIssueNumberParamAlt() mcp.ToolOption {
+	return mcp.WithNumber("issueNumber",
+		mcp.Required(),
+		mcp.Description("Issue number"),
+	)
+}

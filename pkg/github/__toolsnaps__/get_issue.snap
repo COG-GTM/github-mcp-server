@@ -7,15 +7,15 @@
   "inputSchema": {
     "properties": {
       "issue_number": {
-        "description": "The number of the issue",
+        "description": "Issue number",
         "type": "number"
       },
       "owner": {
-        "description": "The owner of the repository",
+        "description": "Repository owner",
         "type": "string"
       },
       "repo": {
-        "description": "The name of the repository",
+        "description": "Repository name",
         "type": "string"
       }
     },

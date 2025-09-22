@@ -453,7 +453,7 @@ func performRepositorySubscriptionAction(ctx context.Context, client *github.Cli
 		resp, err := client.Activity.DeleteRepositorySubscription(ctx, owner, repo)
 		return nil, resp, err
 	default:
-		return nil, nil, fmt.Errorf("Invalid action. Must be one of: ignore, watch, delete.")
+		return nil, nil, fmt.Errorf("invalid action. Must be one of: ignore, watch, delete")
 	}
 }
 
