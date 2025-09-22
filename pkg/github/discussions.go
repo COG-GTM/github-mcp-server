@@ -13,6 +13,17 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+const (
+	ErrFailedToGetGitHubGQLClient = "failed to get GitHub GQL client: %v"
+	CategoryPrefix                = "category:%s"
+	DiscussionNotFound           = "discussion not found"
+	SortOrder                    = "Sort order"
+	InvalidQuery                 = "invalid:query"
+	ResourceNotFound             = "resource not found"
+	NotFound                     = "not found"
+	MutationFailed               = "mutation failed"
+)
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -51,7 +62,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGitHubGQLClient, err)), nil
 			}
 
 			// If category filter is specified, use it as the category ID for server-side filtering
@@ -98,7 +109,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
 						Labels: []*github.Label{
 							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+								Name: github.Ptr(fmt.Sprintf(CategoryPrefix, string(n.Category.Name))),
 							},
 						},
 					}
@@ -138,7 +149,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
 						Labels: []*github.Label{
 							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+								Name: github.Ptr(fmt.Sprintf(CategoryPrefix, string(n.Category.Name))),
 							},
 						},
 					}
@@ -187,7 +198,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGitHubGQLClient, err)), nil
 			}
 
 			var q struct {
@@ -221,7 +232,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 				CreatedAt: &github.Timestamp{Time: d.CreatedAt.Time},
 				Labels: []*github.Label{
 					{
-						Name: github.Ptr(fmt.Sprintf("category:%s", string(d.Category.Name))),
+						Name: github.Ptr(fmt.Sprintf(CategoryPrefix, string(d.Category.Name))),
 					},
 				},
 			}
@@ -258,7 +269,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGitHubGQLClient, err)), nil
 			}
 
 			var q struct {
@@ -356,7 +367,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetGitHubGQLClient, err)), nil
 			}
 			var q struct {
 				Repository struct {

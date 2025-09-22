@@ -19,6 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	TestMainBranchRef        = "refs/heads/main"
+	TestReadmeContent        = "# README"
+	TestExamplePath          = "docs/example.md"
+	TestExampleContent       = "# Example\n\nThis is an example file."
+	TestUpdatedReadmeContent = "# Updated README\n\nThis is an updated README file."
+)
+
 func Test_GetFileContents(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -42,11 +50,11 @@ func Test_GetFileContents(t *testing.T) {
 	mockDirContent := []*github.RepositoryContent{
 		{
 			Type:    github.Ptr("file"),
-			Name:    github.Ptr("README.md"),
-			Path:    github.Ptr("README.md"),
+			Name:    github.Ptr(TestFileName),
+			Path:    github.Ptr(TestFileName),
 			SHA:     github.Ptr("abc123"),
 			Size:    github.Ptr(42),
-			HTMLURL: github.Ptr("https://github.com/owner/repo/blob/main/README.md"),
+			HTMLURL: github.Ptr("https://github.com/owner/repo/blob/main/" + TestFileName),
 		},
 		{
 			Type:    github.Ptr("dir"),
@@ -80,12 +88,12 @@ func Test_GetFileContents(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"owner": "owner",
 				"repo":  "repo",
-				"path":  "README.md",
-				"ref":   "refs/heads/main",
+				"path":  TestFileName,
+				"ref":   TestMainBranchRef,
 			},
 			expectError: false,
 			expectedResult: mcp.TextResourceContents{
-				URI:      "repo://owner/repo/refs/heads/main/contents/README.md",
+				URI:      "repo://owner/repo/refs/heads/main/contents/" + TestFileName,
 				Text:     "# Test Repository\n\nThis is a test repository.",
 				MIMEType: "text/markdown",
 			},
@@ -105,7 +113,7 @@ func Test_GetFileContents(t *testing.T) {
 				"owner": "owner",
 				"repo":  "repo",
 				"path":  "test.png",
-				"ref":   "refs/heads/main",
+				"ref":   TestMainBranchRef,
 			},
 			expectError: false,
 			expectedResult: mcp.BlobResourceContents{
@@ -162,7 +170,7 @@ func Test_GetFileContents(t *testing.T) {
 				"owner": "owner",
 				"repo":  "repo",
 				"path":  "nonexistent.md",
-				"ref":   "refs/heads/main",
+				"ref":   TestMainBranchRef,
 			},
 			expectError:    false,
 			expectedResult: mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."),
@@ -341,7 +349,7 @@ func Test_CreateBranch(t *testing.T) {
 
 	// Setup mock reference for from_branch tests
 	mockSourceRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(TestMainBranchRef),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123def456"),
 		},
@@ -847,11 +855,11 @@ func Test_CreateOrUpdateFile(t *testing.T) {
 	mockFileResponse := &github.RepositoryContentResponse{
 		Content: &github.RepositoryContent{
 			Name:        github.Ptr("example.md"),
-			Path:        github.Ptr("docs/example.md"),
+			Path:        github.Ptr(TestExamplePath),
 			SHA:         github.Ptr("abc123def456"),
 			Size:        github.Ptr(42),
-			HTMLURL:     github.Ptr("https://github.com/owner/repo/blob/main/docs/example.md"),
-			DownloadURL: github.Ptr("https://raw.githubusercontent.com/owner/repo/main/docs/example.md"),
+			HTMLURL:     github.Ptr("https://github.com/owner/repo/blob/main/" + TestExamplePath),
+			DownloadURL: github.Ptr("https://raw.githubusercontent.com/owner/repo/main/" + TestExamplePath),
 		},
 		Commit: github.Commit{
 			SHA:     github.Ptr("def456abc789"),
@@ -890,8 +898,8 @@ func Test_CreateOrUpdateFile(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"owner":   "owner",
 				"repo":    "repo",
-				"path":    "docs/example.md",
-				"content": "# Example\n\nThis is an example file.",
+				"path":    TestExamplePath,
+				"content": TestExampleContent,
 				"message": "Add example file",
 				"branch":  "main",
 			},
@@ -916,7 +924,7 @@ func Test_CreateOrUpdateFile(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"owner":   "owner",
 				"repo":    "repo",
-				"path":    "docs/example.md",
+				"path":    TestExamplePath,
 				"content": "# Updated Example\n\nThis file has been updated.",
 				"message": "Update example file",
 				"branch":  "main",
@@ -939,7 +947,7 @@ func Test_CreateOrUpdateFile(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"owner":   "owner",
 				"repo":    "repo",
-				"path":    "docs/example.md",
+				"path":    TestExamplePath,
 				"content": "#Invalid Content",
 				"message": "Invalid request",
 				"branch":  "nonexistent-branch",
@@ -1160,7 +1168,7 @@ func Test_PushFiles(t *testing.T) {
 
 	// Setup mock objects
 	mockRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(TestMainBranchRef),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123"),
 			URL: github.Ptr("https://api.github.com/repos/owner/repo/git/trees/abc123"),
@@ -1185,7 +1193,7 @@ func Test_PushFiles(t *testing.T) {
 	}
 
 	mockUpdatedRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(TestMainBranchRef),
 		Object: &github.GitObject{
 			SHA: github.Ptr("jkl012"),
 			URL: github.Ptr("https://api.github.com/repos/owner/repo/git/trees/jkl012"),
@@ -1221,16 +1229,16 @@ func Test_PushFiles(t *testing.T) {
 						"base_tree": "def456",
 						"tree": []interface{}{
 							map[string]interface{}{
-								"path":    "README.md",
+								"path":    TestFileName,
 								"mode":    "100644",
 								"type":    "blob",
-								"content": "# Updated README\n\nThis is an updated README file.",
+								"content": TestUpdatedReadmeContent,
 							},
 							map[string]interface{}{
-								"path":    "docs/example.md",
+								"path":    TestExamplePath,
 								"mode":    "100644",
 								"type":    "blob",
-								"content": "# Example\n\nThis is an example file.",
+								"content": TestExampleContent,
 							},
 						},
 					}).andThen(
@@ -1265,12 +1273,12 @@ func Test_PushFiles(t *testing.T) {
 				"branch": "main",
 				"files": []interface{}{
 					map[string]interface{}{
-						"path":    "README.md",
-						"content": "# Updated README\n\nThis is an updated README file.",
+						"path":    TestFileName,
+						"content": TestUpdatedReadmeContent,
 					},
 					map[string]interface{}{
-						"path":    "docs/example.md",
-						"content": "# Example\n\nThis is an example file.",
+						"path":    TestExamplePath,
+						"content": TestExampleContent,
 					},
 				},
 				"message": "Update multiple files",
@@ -1341,7 +1349,7 @@ func Test_PushFiles(t *testing.T) {
 				"branch": "main",
 				"files": []interface{}{
 					map[string]interface{}{
-						"path": "README.md",
+						"path": TestFileName,
 						// Missing content
 					},
 				},
@@ -1364,8 +1372,8 @@ func Test_PushFiles(t *testing.T) {
 				"branch": "non-existent-branch",
 				"files": []interface{}{
 					map[string]interface{}{
-						"path":    "README.md",
-						"content": "# README",
+						"path":    TestFileName,
+						"content": TestReadmeContent,
 					},
 				},
 				"message": "Update file",
@@ -1393,8 +1401,8 @@ func Test_PushFiles(t *testing.T) {
 				"branch": "main",
 				"files": []interface{}{
 					map[string]interface{}{
-						"path":    "README.md",
-						"content": "# README",
+						"path":    TestFileName,
+						"content": TestReadmeContent,
 					},
 				},
 				"message": "Update file",
@@ -1427,8 +1435,8 @@ func Test_PushFiles(t *testing.T) {
 				"branch": "main",
 				"files": []interface{}{
 					map[string]interface{}{
-						"path":    "README.md",
-						"content": "# README",
+						"path":    TestFileName,
+						"content": TestReadmeContent,
 					},
 				},
 				"message": "Update file",
@@ -1613,7 +1621,7 @@ func Test_DeleteFile(t *testing.T) {
 
 	// Setup mock objects for Git Data API
 	mockRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(TestMainBranchRef),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123"),
 		},
@@ -1664,7 +1672,7 @@ func Test_DeleteFile(t *testing.T) {
 						"base_tree": "def456",
 						"tree": []interface{}{
 							map[string]interface{}{
-								"path": "docs/example.md",
+								"path": TestExamplePath,
 								"mode": "100644",
 								"type": "blob",
 								"sha":  nil,
@@ -1693,7 +1701,7 @@ func Test_DeleteFile(t *testing.T) {
 						"force": false,
 					}).andThen(
 						mockResponse(t, http.StatusOK, &github.Reference{
-							Ref: github.Ptr("refs/heads/main"),
+							Ref: github.Ptr(TestMainBranchRef),
 							Object: &github.GitObject{
 								SHA: github.Ptr("jkl012"),
 							},
@@ -1704,7 +1712,7 @@ func Test_DeleteFile(t *testing.T) {
 			requestArgs: map[string]interface{}{
 				"owner":   "owner",
 				"repo":    "repo",
-				"path":    "docs/example.md",
+				"path":    TestExamplePath,
 				"message": "Delete example file",
 				"branch":  "main",
 			},

@@ -24,6 +24,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	E2ETestPrefix = "Created by e2e test %s"
+	GitHubBaseURL = "https://github.com"
+)
+
 var (
 	// Shared variables and sync.Once instances to ensure one-time execution
 	getTokenOnce sync.Once
@@ -62,7 +67,7 @@ func getRESTClient(t *testing.T) *gogithub.Client {
 	// Create a new GitHub client with the token
 	ghClient := gogithub.NewClient(nil).WithAuthToken(token)
 
-	if host := getE2EHost(); host != "" && host != "https://github.com" {
+	if host := getE2EHost(); host != "" && host != GitHubBaseURL {
 		var err error
 		// Currently this works for GHEC because the API is exposed at the api subdomain and the path prefix
 		// but it would be preferable to extract the host parsing from the main server logic, and use it here.
@@ -482,7 +487,7 @@ func TestFileDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(E2ETestPrefix, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -514,7 +519,7 @@ func TestFileDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(E2ETestPrefix, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -671,7 +676,7 @@ func TestDirectoryDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-dir/test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(E2ETestPrefix, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -706,7 +711,7 @@ func TestDirectoryDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(E2ETestPrefix, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the directory containing the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -791,7 +796,7 @@ func TestDirectoryDeletion(t *testing.T) {
 func TestRequestCopilotReview(t *testing.T) {
 	t.Parallel()
 
-	if getE2EHost() != "" && getE2EHost() != "https://github.com" {
+	if getE2EHost() != "" && getE2EHost() != GitHubBaseURL {
 		t.Skip("Skipping test because the host does not support copilot reviews")
 	}
 
@@ -867,7 +872,7 @@ func TestRequestCopilotReview(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(E2ETestPrefix, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -939,7 +944,7 @@ func TestRequestCopilotReview(t *testing.T) {
 func TestAssignCopilotToIssue(t *testing.T) {
 	t.Parallel()
 
-	if getE2EHost() != "" && getE2EHost() != "https://github.com" {
+	if getE2EHost() != "" && getE2EHost() != GitHubBaseURL {
 		t.Skip("Skipping test because the host does not support copilot being assigned to issues")
 	}
 
@@ -1118,7 +1123,7 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(E2ETestPrefix, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}
@@ -1523,7 +1528,7 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
+		"content": fmt.Sprintf(E2ETestPrefix, t.Name()),
 		"message": "Add test file",
 		"branch":  "test-branch",
 	}

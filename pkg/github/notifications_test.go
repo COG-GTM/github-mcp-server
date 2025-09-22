@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	InvalidThreadIDFormat = "invalid threadID format"
+)
+
 func Test_ListNotifications(t *testing.T) {
 	// Verify tool definition and schema
 	mockClient := github.NewClient(nil)
@@ -503,7 +507,7 @@ func Test_DismissNotification(t *testing.T) {
 			expectDone:  true,
 		},
 		{
-			name:         "invalid threadID format",
+			name:         InvalidThreadIDFormat,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]interface{}{
 				"threadID": "notanumber",
@@ -556,8 +560,8 @@ func Test_DismissNotification(t *testing.T) {
 					assert.Contains(t, text, "missing required parameter: threadID")
 				case tc.requestArgs["state"] == nil:
 					assert.Contains(t, text, "missing required parameter: state")
-				case tc.name == "invalid threadID format":
-					assert.Contains(t, text, "invalid threadID format")
+				case tc.name == InvalidThreadIDFormat:
+					assert.Contains(t, text, InvalidThreadIDFormat)
 				case tc.name == "invalid state value":
 					assert.Contains(t, text, "Invalid state. Must be one of: read, done.")
 				default:
@@ -576,7 +580,7 @@ func Test_DismissNotification(t *testing.T) {
 				assert.Contains(t, textContent.Text, "Notification marked as done")
 			}
 			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "invalid threadID format")
+				assert.Contains(t, textContent.Text, InvalidThreadIDFormat)
 			}
 		})
 	}

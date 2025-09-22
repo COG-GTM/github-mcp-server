@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	DummySnapFile = "dummy.snap"
+)
+
 type dummyTool struct {
 	Name  string `json:"name"`
 	Value int    `json:"value"`
@@ -36,7 +40,7 @@ func TestSnapshotDoesNotExistNotInCI(t *testing.T) {
 
 	// Then it should succeed and write the snapshot file
 	require.NoError(t, err)
-	path := filepath.Join("__toolsnaps__", "dummy.snap")
+	path := filepath.Join("__toolsnaps__", DummySnapFile)
 	_, statErr := os.Stat(path)
 	assert.NoError(t, statErr, "expected snapshot file to be written")
 }
@@ -66,7 +70,7 @@ func TestSnapshotExistsMatch(t *testing.T) {
 	tool := dummyTool{"foo", 42}
 	b, _ := json.MarshalIndent(tool, "", "  ")
 	require.NoError(t, os.MkdirAll("__toolsnaps__", 0700))
-	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", "dummy.snap"), b, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", DummySnapFile), b, 0600))
 
 	// When we test the snapshot
 	err := Test("dummy", tool)
@@ -83,7 +87,7 @@ func TestSnapshotExistsDiff(t *testing.T) {
 
 	// Given a non-matching snapshot file exists
 	require.NoError(t, os.MkdirAll("__toolsnaps__", 0700))
-	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", "dummy.snap"), []byte(`{"name":"foo","value":1}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", DummySnapFile), []byte(`{"name":"foo","value":1}`), 0600))
 	tool := dummyTool{"foo", 2}
 
 	// When we test the snapshot
@@ -100,7 +104,7 @@ func TestUpdateToolsnaps(t *testing.T) {
 	// Given UPDATE_TOOLSNAPS is set, regardless of whether a matching snapshot file exists
 	t.Setenv("UPDATE_TOOLSNAPS", "true")
 	require.NoError(t, os.MkdirAll("__toolsnaps__", 0700))
-	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", "dummy.snap"), []byte(`{"name":"foo","value":1}`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", DummySnapFile), []byte(`{"name":"foo","value":1}`), 0600))
 	tool := dummyTool{"foo", 42}
 
 	// When we test the snapshot
@@ -108,7 +112,7 @@ func TestUpdateToolsnaps(t *testing.T) {
 
 	// Then it should succeed and write the snapshot file
 	require.NoError(t, err)
-	path := filepath.Join("__toolsnaps__", "dummy.snap")
+	path := filepath.Join("__toolsnaps__", DummySnapFile)
 	_, statErr := os.Stat(path)
 	assert.NoError(t, statErr, "expected snapshot file to be written")
 }
@@ -121,7 +125,7 @@ func TestMalformedSnapshotJSON(t *testing.T) {
 
 	// Given a malformed snapshot file exists
 	require.NoError(t, os.MkdirAll("__toolsnaps__", 0700))
-	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", "dummy.snap"), []byte(`not-json`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join("__toolsnaps__", DummySnapFile), []byte(`not-json`), 0600))
 	tool := dummyTool{"foo", 42}
 
 	// When we test the snapshot

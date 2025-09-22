@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	TestRepositoryContent = "# Test Repository\n\nThis is a test repository."
+	ContentTypeHeader     = "Content-Type"
+	ContentTypeMarkdown   = "text/markdown"
+	ContentTypePNG        = "image/png"
+	TestFileName          = "README.md"
+)
+
 func Test_repositoryResourceContentsHandler(t *testing.T) {
 	base, _ := url.Parse("https://raw.example.com/")
 	tests := []struct {
@@ -29,9 +37,9 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ContentTypePNG)
 						// as this is given as a png, it will return the content as a blob
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -45,9 +53,9 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
+						w.Header().Set(ContentTypeHeader, ContentTypePNG)
 						// as this is given as a png, it will return the content as a blob
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -63,8 +71,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "image/png")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypePNG)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -76,7 +84,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			},
 			expectedResult: []mcp.BlobResourceContents{{
 				Blob:     "IyBUZXN0IFJlcG9zaXRvcnkKClRoaXMgaXMgYSB0ZXN0IHJlcG9zaXRvcnku",
-				MIMEType: "image/png",
+				MIMEType: ContentTypePNG,
 				URI:      "",
 			}},
 		},
@@ -86,8 +94,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypeMarkdown)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -95,11 +103,11 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			requestArgs: map[string]any{
 				"owner": []string{"owner"},
 				"repo":  []string{"repo"},
-				"path":  []string{"README.md"},
+				"path":  []string{TestFileName},
 			},
 			expectedResult: []mcp.TextResourceContents{{
-				Text:     "# Test Repository\n\nThis is a test repository.",
-				MIMEType: "text/markdown",
+				Text:     TestRepositoryContent,
+				MIMEType: ContentTypeMarkdown,
 				URI:      "",
 			}},
 		},
@@ -109,8 +117,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByBranchByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypeMarkdown)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -118,12 +126,12 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			requestArgs: map[string]any{
 				"owner":  []string{"owner"},
 				"repo":   []string{"repo"},
-				"path":   []string{"README.md"},
+				"path":   []string{TestFileName},
 				"branch": []string{"main"},
 			},
 			expectedResult: []mcp.TextResourceContents{{
-				Text:     "# Test Repository\n\nThis is a test repository.",
-				MIMEType: "text/markdown",
+				Text:     TestRepositoryContent,
+				MIMEType: ContentTypeMarkdown,
 				URI:      "",
 			}},
 		},
@@ -133,8 +141,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoByTagByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypeMarkdown)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -142,12 +150,12 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			requestArgs: map[string]any{
 				"owner": []string{"owner"},
 				"repo":  []string{"repo"},
-				"path":  []string{"README.md"},
+				"path":  []string{TestFileName},
 				"tag":   []string{"v1.0.0"},
 			},
 			expectedResult: []mcp.TextResourceContents{{
-				Text:     "# Test Repository\n\nThis is a test repository.",
-				MIMEType: "text/markdown",
+				Text:     TestRepositoryContent,
+				MIMEType: ContentTypeMarkdown,
 				URI:      "",
 			}},
 		},
@@ -157,8 +165,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoBySHAByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypeMarkdown)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -166,12 +174,12 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			requestArgs: map[string]any{
 				"owner": []string{"owner"},
 				"repo":  []string{"repo"},
-				"path":  []string{"README.md"},
+				"path":  []string{TestFileName},
 				"sha":   []string{"abc123"},
 			},
 			expectedResult: []mcp.TextResourceContents{{
-				Text:     "# Test Repository\n\nThis is a test repository.",
-				MIMEType: "text/markdown",
+				Text:     TestRepositoryContent,
+				MIMEType: ContentTypeMarkdown,
 				URI:      "",
 			}},
 		},
@@ -181,7 +189,7 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					mock.GetReposPullsByOwnerByRepoByPullNumber,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "application/json")
+						w.Header().Set(ContentTypeHeader, "application/json")
 						_, err := w.Write([]byte(`{"head": {"sha": "abc123"}}`))
 						require.NoError(t, err)
 					}),
@@ -189,8 +197,8 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 				mock.WithRequestMatchHandler(
 					raw.GetRawReposContentsByOwnerByRepoBySHAByPath,
 					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Content-Type", "text/markdown")
-						_, err := w.Write([]byte("# Test Repository\n\nThis is a test repository."))
+						w.Header().Set(ContentTypeHeader, ContentTypeMarkdown)
+						_, err := w.Write([]byte(TestRepositoryContent))
 						require.NoError(t, err)
 					}),
 				),
@@ -198,12 +206,12 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 			requestArgs: map[string]any{
 				"owner":    []string{"owner"},
 				"repo":     []string{"repo"},
-				"path":     []string{"README.md"},
+				"path":     []string{TestFileName},
 				"prNumber": []string{"42"},
 			},
 			expectedResult: []mcp.TextResourceContents{{
-				Text:     "# Test Repository\n\nThis is a test repository.",
-				MIMEType: "text/markdown",
+				Text:     TestRepositoryContent,
+				MIMEType: ContentTypeMarkdown,
 				URI:      "",
 			}},
 		},
