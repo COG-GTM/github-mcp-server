@@ -259,22 +259,22 @@ func Test_repositoryResourceContentsHandler(t *testing.T) {
 func Test_GetRepositoryResourceContent(t *testing.T) {
 	mockRawClient := raw.NewClient(github.NewClient(nil), &url.URL{})
 	tmpl, _ := GetRepositoryResourceContent(nil, stubGetRawClientFn(mockRawClient), translations.NullTranslationHelper)
-	require.Equal(t, "repo://{owner}/{repo}/contents{/path*}", tmpl.URITemplate.Raw())
+	require.Equal(t, RepoURIScheme+"{owner}/{repo}/contents{/path*}", tmpl.URITemplate.Raw())
 }
 
 func Test_GetRepositoryResourceBranchContent(t *testing.T) {
 	mockRawClient := raw.NewClient(github.NewClient(nil), &url.URL{})
 	tmpl, _ := GetRepositoryResourceBranchContent(nil, stubGetRawClientFn(mockRawClient), translations.NullTranslationHelper)
-	require.Equal(t, "repo://{owner}/{repo}/refs/heads/{branch}/contents{/path*}", tmpl.URITemplate.Raw())
+	require.Equal(t, RepoURIScheme+"{owner}/{repo}/refs/heads/{branch}/contents{/path*}", tmpl.URITemplate.Raw())
 }
 func Test_GetRepositoryResourceCommitContent(t *testing.T) {
 	mockRawClient := raw.NewClient(github.NewClient(nil), &url.URL{})
 	tmpl, _ := GetRepositoryResourceCommitContent(nil, stubGetRawClientFn(mockRawClient), translations.NullTranslationHelper)
-	require.Equal(t, "repo://{owner}/{repo}/sha/{sha}/contents{/path*}", tmpl.URITemplate.Raw())
+	require.Equal(t, RepoURIScheme+"{owner}/{repo}/sha/{sha}/contents{/path*}", tmpl.URITemplate.Raw())
 }
 
 func Test_GetRepositoryResourceTagContent(t *testing.T) {
 	mockRawClient := raw.NewClient(github.NewClient(nil), &url.URL{})
 	tmpl, _ := GetRepositoryResourceTagContent(nil, stubGetRawClientFn(mockRawClient), translations.NullTranslationHelper)
-	require.Equal(t, "repo://{owner}/{repo}/refs/tags/{tag}/contents{/path*}", tmpl.URITemplate.Raw())
+	require.Equal(t, RepoURIScheme+"{owner}/{repo}/refs/tags/{tag}/contents{/path*}", tmpl.URITemplate.Raw())
 }
