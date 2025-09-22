@@ -46,7 +46,7 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			result, resp, err := client.Search.Repositories(ctx, query, opts)
 			if err != nil {
@@ -61,14 +61,14 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -91,7 +91,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				mcp.Description("Sort field ('indexed' only)"),
 			),
 			mcp.WithString("order",
-				mcp.Description("Sort order"),
+				mcp.Description(ParamSortOrder),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -125,7 +125,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			result, resp, err := client.Search.Code(ctx, query, opts)
@@ -141,14 +141,14 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -198,7 +198,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		client, err := getClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 		}
 
 		searchQuery := "type:" + accountType + " " + query
@@ -215,7 +215,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 		if resp.StatusCode != 200 {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 			}
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
@@ -251,7 +251,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		r, err := json.Marshal(minimalResp)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal response: %w", err)
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 		}
 		return mcp.NewToolResultText(string(r)), nil
 	}
@@ -274,7 +274,7 @@ func SearchUsers(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+				mcp.Description(ParamSortOrder),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
@@ -298,7 +298,7 @@ func SearchOrgs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+				mcp.Description(ParamSortOrder),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
