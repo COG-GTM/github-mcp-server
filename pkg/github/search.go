@@ -46,7 +46,7 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			result, resp, err := client.Search.Repositories(ctx, query, opts)
 			if err != nil {
@@ -125,7 +125,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			result, resp, err := client.Search.Code(ctx, query, opts)
@@ -198,7 +198,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		client, err := getClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 		}
 
 		searchQuery := "type:" + accountType + " " + query

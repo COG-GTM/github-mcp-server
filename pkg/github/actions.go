@@ -17,6 +17,12 @@ import (
 )
 
 const (
+	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
+	DescRepositoryOwner = "Repository owner"
+	DescRepositoryName = "Repository name"
+)
+
+const (
 	DescriptionRepositoryOwner = "Repository owner"
 	DescriptionRepositoryName  = "Repository name"
 )
@@ -66,7 +72,7 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Set up list options
@@ -208,7 +214,7 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Set up list options
@@ -294,7 +300,7 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			event := github.CreateWorkflowDispatchEventRequest{
@@ -375,7 +381,7 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			workflowRun, resp, err := client.Actions.GetWorkflowRunByID(ctx, owner, repo, runID)
@@ -431,7 +437,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Get the download URL for the logs
@@ -523,7 +529,7 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Set up list options
@@ -627,7 +633,7 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Validate parameters
@@ -851,7 +857,7 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			resp, err := client.Actions.RerunWorkflowByID(ctx, owner, repo, runID)
@@ -914,7 +920,7 @@ func RerunFailedJobs(getClient GetClientFn, t translations.TranslationHelperFunc
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			resp, err := client.Actions.RerunFailedJobsByID(ctx, owner, repo, runID)
@@ -977,7 +983,7 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			resp, err := client.Actions.CancelWorkflowRunByID(ctx, owner, repo, runID)
@@ -1056,7 +1062,7 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Set up list options
@@ -1118,7 +1124,7 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Get the download URL for the artifact
@@ -1184,7 +1190,7 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			resp, err := client.Actions.DeleteWorkflowRunLogs(ctx, owner, repo, runID)
@@ -1247,7 +1253,7 @@ func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelper
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			usage, resp, err := client.Actions.GetWorkflowRunUsageByID(ctx, owner, repo, runID)
