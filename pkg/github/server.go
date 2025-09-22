@@ -4,10 +4,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	ErrFailedToReadResponseBody = "failed to read response body: %w"
+	ErrFailedToMarshalResponse  = "failed to marshal response: %w"
+	ErrFailedToGetGitHubClient  = "failed to get GitHub client: %w"
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
@@ -223,4 +230,12 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+func HandleHTTPError(resp *github.Response, operation string) (*mcp.CallToolResult, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return mcp.NewToolResultError(fmt.Sprintf("failed to %s: %s", operation, string(body))), nil
 }

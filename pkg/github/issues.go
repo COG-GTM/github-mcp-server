@@ -2,9 +2,7 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -61,21 +59,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				return nil, fmt.Errorf("failed to get issue: %w", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issue), nil
 		}
 }
 
@@ -137,19 +121,10 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
+				return HandleHTTPError(resp, "create comment")
 			}
 
-			r, err := json.Marshal(createdComment)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(createdComment), nil
 		}
 }
 
@@ -304,19 +279,10 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
+				return HandleHTTPError(resp, "create issue")
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issue), nil
 		}
 }
 
@@ -426,19 +392,10 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
+				return HandleHTTPError(resp, "list issues")
 			}
 
-			r, err := json.Marshal(issues)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issues), nil
 		}
 }
 
@@ -572,19 +529,10 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
+				return HandleHTTPError(resp, "update issue")
 			}
 
-			r, err := json.Marshal(updatedIssue)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(updatedIssue), nil
 		}
 }
 
@@ -655,19 +603,10 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
+				return HandleHTTPError(resp, "get issue comments")
 			}
 
-			r, err := json.Marshal(comments)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(comments), nil
 		}
 }
 

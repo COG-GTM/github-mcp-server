@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -155,13 +154,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			// Marshal response to JSON
-			r, err := json.Marshal(notifications)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(notifications), nil
 		}
 }
 
@@ -221,11 +214,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark notification as %s: %s", state, string(body))), nil
+				return HandleHTTPError(resp, fmt.Sprintf("mark notification as %s", state))
 			}
 
 			return mcp.NewToolResultText(fmt.Sprintf("Notification marked as %s", state)), nil
@@ -300,11 +289,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
+				return HandleHTTPError(resp, "mark all notifications as read")
 			}
 
 			return mcp.NewToolResultText("All notifications marked as read"), nil
@@ -346,19 +331,10 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notification details: %s", string(body))), nil
+				return HandleHTTPError(resp, "get notification details")
 			}
 
-			r, err := json.Marshal(thread)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(thread), nil
 		}
 }
 
@@ -431,8 +407,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				body, _ := io.ReadAll(resp.Body)
-				return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
+				return HandleHTTPError(resp, fmt.Sprintf("%s notification subscription", action))
 			}
 
 			if action == NotificationActionDelete {
@@ -440,11 +415,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				return mcp.NewToolResultText("Notification subscription deleted"), nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(result), nil
 		}
 }
 
@@ -501,11 +472,7 @@ func handleRepositorySubscriptionResponse(action string, result any, resp *githu
 		return mcp.NewToolResultText("Repository subscription deleted"), nil
 	}
 
-	r, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-	}
-	return mcp.NewToolResultText(string(r)), nil
+	return MarshalledTextResult(result), nil
 }
 
 // ManageRepositoryNotificationSubscription creates a tool to manage a repository notification subscription (ignore, watch, delete)

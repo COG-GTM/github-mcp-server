@@ -2,9 +2,7 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	ghErrors "github.com/github/github-mcp-server/pkg/errors"
@@ -65,19 +63,10 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+				return HandleHTTPError(resp, "get alert")
 			}
 
-			r, err := json.Marshal(alert)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(alert), nil
 		}
 }
 
@@ -146,18 +135,9 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+				return HandleHTTPError(resp, "list alerts")
 			}
 
-			r, err := json.Marshal(alerts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(alerts), nil
 		}
 }

@@ -168,19 +168,10 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
+				return HandleHTTPError(resp, "list commits")
 			}
 
-			r, err := json.Marshal(commits)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(commits), nil
 		}
 }
 
@@ -239,19 +230,10 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %s", string(body))), nil
+				return HandleHTTPError(resp, "list branches")
 			}
 
-			r, err := json.Marshal(branches)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(branches), nil
 		}
 }
 
@@ -430,19 +412,10 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
+				return HandleHTTPError(resp, "create repository")
 			}
 
-			r, err := json.Marshal(createdRepo)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(createdRepo), nil
 		}
 }
 

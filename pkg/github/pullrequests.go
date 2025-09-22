@@ -67,19 +67,10 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "get pull request")
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(pr), nil
 		}
 }
 
@@ -186,19 +177,10 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "create pull request")
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(pr), nil
 		}
 }
 
@@ -311,19 +293,10 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "update pull request")
 			}
 
-			r, err := json.Marshal(pr)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(pr), nil
 		}
 }
 
@@ -424,19 +397,10 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list pull requests: %s", string(body))), nil
+				return HandleHTTPError(resp, "list pull requests")
 			}
 
-			r, err := json.Marshal(prs)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(prs), nil
 		}
 }
 
@@ -517,19 +481,10 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to merge pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "merge pull request")
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(result), nil
 		}
 }
 
@@ -703,11 +658,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return HandleHTTPError(resp, "get pull request")
 			}
 
 			// Get combined status for the head SHA
@@ -811,12 +762,7 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update pull request branch: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(result), nil
 		}
 }
 
@@ -942,19 +888,10 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request reviews: %s", string(body))), nil
+				return HandleHTTPError(resp, "get pull request reviews")
 			}
 
-			r, err := json.Marshal(reviews)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(reviews), nil
 		}
 }
 
