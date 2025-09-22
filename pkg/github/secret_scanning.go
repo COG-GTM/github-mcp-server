@@ -51,7 +51,7 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			alert, resp, err := client.SecretScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
@@ -67,14 +67,14 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(alert)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -133,7 +133,7 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			alerts, resp, err := client.SecretScanning.ListAlertsForRepo(ctx, owner, repo, &github.SecretScanningAlertListOptions{State: state, SecretType: secretType, Resolution: resolution})
 			if err != nil {
@@ -148,14 +148,14 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(alerts)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
+				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
