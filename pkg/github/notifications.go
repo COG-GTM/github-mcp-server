@@ -49,9 +49,9 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 
 			filter, err := OptionalParam[string](request, "filter")
@@ -231,9 +231,9 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 
 			lastReadAt, err := OptionalParam[string](request, "lastReadAt")
@@ -305,9 +305,9 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -368,9 +368,9 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -457,9 +457,9 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			client, err := getClient(ctx)
+			client, err := GetClientWithError(ctx, getClient)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+				return nil, err
 			}
 
 			owner, err := RequiredParam[string](request, "owner")
