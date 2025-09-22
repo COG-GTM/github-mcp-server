@@ -7,7 +7,7 @@
   "inputSchema": {
     "properties": {
       "owner": {
-        "description": "The owner of the repository.",
+        "description": "Repository owner",
         "type": "string"
       },
       "ref": {
@@ -15,7 +15,7 @@
         "type": "string"
       },
       "repo": {
-        "description": "The name of the repository.",
+        "description": "Repository name",
         "type": "string"
       },
       "severity": {

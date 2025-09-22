@@ -11,7 +11,7 @@
         "type": "string"
       },
       "issue_number": {
-        "description": "Issue number to comment on",
+        "description": "Issue number",
         "type": "number"
       },
       "owner": {

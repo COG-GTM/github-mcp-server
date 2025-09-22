@@ -1,13 +1,22 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	ErrFailedToReadResponseBody = "failed to read response body: %w"
+	ErrFailedToMarshalResponse  = "failed to marshal response: %w"
+	ErrFailedToGetGitHubClient  = "failed to get GitHub client: %w"
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
@@ -223,4 +232,119 @@ func MarshalledTextResult(v any) *mcp.CallToolResult {
 	}
 
 	return mcp.NewToolResultText(string(data))
+}
+
+func HandleHTTPError(resp *github.Response, operation string) (*mcp.CallToolResult, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return mcp.NewToolResultError(fmt.Sprintf("failed to %s: %s", operation, string(body))), nil
+}
+
+func ValidateOwnerRepoAlert(request mcp.CallToolRequest) (string, string, int, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", 0, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", 0, err
+	}
+	alertNumber, err := RequiredInt(request, "alertNumber")
+	if err != nil {
+		return "", "", 0, err
+	}
+	return owner, repo, alertNumber, nil
+}
+
+func ValidateOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
+func ExecuteWithClientAndValidation[T any](
+	ctx context.Context,
+	getClient GetClientFn,
+	request mcp.CallToolRequest,
+	validateParams func(mcp.CallToolRequest) error,
+	apiCall func(context.Context, *github.Client) (T, *github.Response, error),
+	operation string,
+) (*mcp.CallToolResult, error) {
+	if err := validateParams(request); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+	}
+
+	result, resp, err := apiCall(ctx, client)
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx, fmt.Sprintf("failed to %s", operation), resp, err), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		return HandleHTTPError(resp, operation)
+	}
+
+	return MarshalledTextResult(result), nil
+}
+
+func WithOwnerParam() mcp.ToolOption {
+	return mcp.WithString("owner",
+		mcp.Required(),
+		mcp.Description("Repository owner"),
+	)
+}
+
+func WithRepoParam() mcp.ToolOption {
+	return mcp.WithString("repo",
+		mcp.Required(),
+		mcp.Description("Repository name"),
+	)
+}
+
+func WithPullNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("pullNumber",
+		mcp.Required(),
+		mcp.Description("Pull request number"),
+	)
+}
+
+func WithIssueNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("issue_number",
+		mcp.Required(),
+		mcp.Description("Issue number"),
+	)
+}
+
+func WithAlertNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("alertNumber",
+		mcp.Required(),
+		mcp.Description("Alert number"),
+	)
+}
+
+func WithDiscussionNumberParam() mcp.ToolOption {
+	return mcp.WithNumber("discussionNumber",
+		mcp.Required(),
+		mcp.Description("Discussion number"),
+	)
+}
+
+func WithIssueNumberParamAlt() mcp.ToolOption {
+	return mcp.WithNumber("issueNumber",
+		mcp.Required(),
+		mcp.Description("Issue number"),
+	)
 }

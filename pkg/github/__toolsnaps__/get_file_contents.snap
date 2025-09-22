@@ -7,7 +7,7 @@
   "inputSchema": {
     "properties": {
       "owner": {
-        "description": "Repository owner (username or organization)",
+        "description": "Repository owner",
         "type": "string"
       },
       "path": {

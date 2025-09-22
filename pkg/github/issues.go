@@ -2,9 +2,7 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -25,18 +23,9 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				Title:        t("TOOL_GET_ISSUE_USER_TITLE", "Get issue details"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("The owner of the repository"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("The name of the repository"),
-			),
-			mcp.WithNumber("issue_number",
-				mcp.Required(),
-				mcp.Description("The number of the issue"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
+			WithIssueNumberParam(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			owner, err := RequiredParam[string](request, "owner")
@@ -54,28 +43,14 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get issue: %w", err)
 			}
 			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issue), nil
 		}
 }
 
@@ -87,18 +62,9 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 				Title:        t("TOOL_ADD_ISSUE_COMMENT_USER_TITLE", "Add comment to issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithNumber("issue_number",
-				mcp.Required(),
-				mcp.Description("Issue number to comment on"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
+			WithIssueNumberParam(),
 			mcp.WithString("body",
 				mcp.Required(),
 				mcp.Description("Comment content"),
@@ -128,7 +94,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
 			if err != nil {
@@ -137,19 +103,10 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
+				return HandleHTTPError(resp, "create comment")
 			}
 
-			r, err := json.Marshal(createdComment)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(createdComment), nil
 		}
 }
 
@@ -206,14 +163,8 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				Title:        t("TOOL_CREATE_ISSUE_USER_TITLE", "Open new issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
 			mcp.WithString("title",
 				mcp.Required(),
 				mcp.Description("Issue title"),
@@ -295,7 +246,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
 			if err != nil {
@@ -304,19 +255,10 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
+				return HandleHTTPError(resp, "create issue")
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issue), nil
 		}
 }
 
@@ -328,14 +270,8 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				Title:        t("TOOL_LIST_ISSUES_USER_TITLE", "List issues"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
 			mcp.WithString("state",
 				mcp.Description("Filter by state"),
 				mcp.Enum("open", "closed", "all"),
@@ -417,7 +353,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
 			if err != nil {
@@ -426,19 +362,10 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
+				return HandleHTTPError(resp, "list issues")
 			}
 
-			r, err := json.Marshal(issues)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(issues), nil
 		}
 }
 
@@ -450,18 +377,9 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				Title:        t("TOOL_UPDATE_ISSUE_USER_TITLE", "Edit issue"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithNumber("issue_number",
-				mcp.Required(),
-				mcp.Description("Issue number to update"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
+			WithIssueNumberParam(),
 			mcp.WithString("title",
 				mcp.Description("New title"),
 			),
@@ -563,7 +481,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
 			if err != nil {
@@ -572,19 +490,10 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
+				return HandleHTTPError(resp, "update issue")
 			}
 
-			r, err := json.Marshal(updatedIssue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(updatedIssue), nil
 		}
 }
 
@@ -596,18 +505,9 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				Title:        t("TOOL_GET_ISSUE_COMMENTS_USER_TITLE", "Get issue comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithNumber("issue_number",
-				mcp.Required(),
-				mcp.Description("Issue number"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
+			WithIssueNumberParam(),
 			mcp.WithNumber("page",
 				mcp.Description("Page number"),
 			),
@@ -646,7 +546,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
@@ -655,19 +555,10 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
+				return HandleHTTPError(resp, "get issue comments")
 			}
 
-			r, err := json.Marshal(comments)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return MarshalledTextResult(comments), nil
 		}
 }
 
@@ -719,18 +610,9 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 				ReadOnlyHint:   ToBoolPtr(false),
 				IdempotentHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
-			mcp.WithNumber("issueNumber",
-				mcp.Required(),
-				mcp.Description("Issue number"),
-			),
+			WithOwnerParam(),
+			WithRepoParam(),
+			WithIssueNumberParamAlt(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			var params struct {
@@ -744,7 +626,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
 			}
 
 			// Firstly, we try to find the copilot bot in the suggested actors for the repository.
