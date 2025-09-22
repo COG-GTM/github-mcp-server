@@ -242,7 +242,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
 			mcp.WithString("owner", mcp.Required(), mcp.Description(ParamRepositoryOwner)),
-			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+			mcp.WithString("repo", mcp.Required(), mcp.Description(ParamRepositoryName)),
 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
