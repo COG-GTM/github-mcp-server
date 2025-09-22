@@ -22,7 +22,7 @@ import (
 // GetRepositoryResourceContent defines the resource template and handler for getting repository content.
 func GetRepositoryResourceContent(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (mcp.ResourceTemplate, server.ResourceTemplateHandlerFunc) {
 	return mcp.NewResourceTemplate(
-			"repo://{owner}/{repo}/contents{/path*}", // Resource template
+			RepoURIPrefix+"{owner}/{repo}/contents{/path*}", // Resource template
 			t("RESOURCE_REPOSITORY_CONTENT_DESCRIPTION", "Repository Content"),
 		),
 		RepositoryResourceContentsHandler(getClient, getRawClient)
@@ -31,7 +31,7 @@ func GetRepositoryResourceContent(getClient GetClientFn, getRawClient raw.GetRaw
 // GetRepositoryResourceBranchContent defines the resource template and handler for getting repository content for a branch.
 func GetRepositoryResourceBranchContent(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (mcp.ResourceTemplate, server.ResourceTemplateHandlerFunc) {
 	return mcp.NewResourceTemplate(
-			"repo://{owner}/{repo}/refs/heads/{branch}/contents{/path*}", // Resource template
+			RepoURIPrefix+"{owner}/{repo}/refs/heads/{branch}/contents{/path*}", // Resource template
 			t("RESOURCE_REPOSITORY_CONTENT_BRANCH_DESCRIPTION", "Repository Content for specific branch"),
 		),
 		RepositoryResourceContentsHandler(getClient, getRawClient)
@@ -40,7 +40,7 @@ func GetRepositoryResourceBranchContent(getClient GetClientFn, getRawClient raw.
 // GetRepositoryResourceCommitContent defines the resource template and handler for getting repository content for a commit.
 func GetRepositoryResourceCommitContent(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (mcp.ResourceTemplate, server.ResourceTemplateHandlerFunc) {
 	return mcp.NewResourceTemplate(
-			"repo://{owner}/{repo}/sha/{sha}/contents{/path*}", // Resource template
+			RepoURIPrefix+"{owner}/{repo}/sha/{sha}/contents{/path*}", // Resource template
 			t("RESOURCE_REPOSITORY_CONTENT_COMMIT_DESCRIPTION", "Repository Content for specific commit"),
 		),
 		RepositoryResourceContentsHandler(getClient, getRawClient)
@@ -49,7 +49,7 @@ func GetRepositoryResourceCommitContent(getClient GetClientFn, getRawClient raw.
 // GetRepositoryResourceTagContent defines the resource template and handler for getting repository content for a tag.
 func GetRepositoryResourceTagContent(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (mcp.ResourceTemplate, server.ResourceTemplateHandlerFunc) {
 	return mcp.NewResourceTemplate(
-			"repo://{owner}/{repo}/refs/tags/{tag}/contents{/path*}", // Resource template
+			RepoURIPrefix+"{owner}/{repo}/refs/tags/{tag}/contents{/path*}", // Resource template
 			t("RESOURCE_REPOSITORY_CONTENT_TAG_DESCRIPTION", "Repository Content for specific tag"),
 		),
 		RepositoryResourceContentsHandler(getClient, getRawClient)
@@ -58,7 +58,7 @@ func GetRepositoryResourceTagContent(getClient GetClientFn, getRawClient raw.Get
 // GetRepositoryResourcePrContent defines the resource template and handler for getting repository content for a pull request.
 func GetRepositoryResourcePrContent(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (mcp.ResourceTemplate, server.ResourceTemplateHandlerFunc) {
 	return mcp.NewResourceTemplate(
-			"repo://{owner}/{repo}/refs/pull/{prNumber}/head/contents{/path*}", // Resource template
+			RepoURIPrefix+"{owner}/{repo}/refs/pull/{prNumber}/head/contents{/path*}", // Resource template
 			t("RESOURCE_REPOSITORY_CONTENT_PR_DESCRIPTION", "Repository Content for specific pull request"),
 		),
 		RepositoryResourceContentsHandler(getClient, getRawClient)
@@ -181,7 +181,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// If we got a response but it is not 200 OK, we return an error
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
 			return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
 		default:

@@ -61,7 +61,7 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
 			}
@@ -91,7 +91,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				mcp.Description("Sort field ('indexed' only)"),
 			),
 			mcp.WithString("order",
-				mcp.Description(DescSortOrder),
+				mcp.Description("Sort order"),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -141,7 +141,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
 			}
@@ -215,7 +215,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 		if resp.StatusCode != 200 {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
@@ -274,7 +274,7 @@ func SearchUsers(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description(DescSortOrder),
+			mcp.Description("Sort order"),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
@@ -298,7 +298,7 @@ func SearchOrgs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description(DescSortOrder),
+			mcp.Description("Sort order"),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),

@@ -65,7 +65,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
 			}
@@ -139,7 +139,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
 			}
@@ -188,7 +188,7 @@ func SearchIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (
 				),
 			),
 			mcp.WithString("order",
-				mcp.Description(DescSortOrder),
+				mcp.Description("Sort order"),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -306,7 +306,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
 			}
@@ -349,7 +349,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				),
 			),
 			mcp.WithString("sort",
-				mcp.Description(DescSortOrder),
+				mcp.Description("Sort order"),
 				mcp.Enum("created", "updated", "comments"),
 			),
 			mcp.WithString("direction",
@@ -428,7 +428,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
 			}

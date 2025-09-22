@@ -70,7 +70,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf(ErrFailedToGetCommit, sha),
+					fmt.Sprintf("failed to get commit: %s", sha),
 					resp,
 					err,
 				), nil
@@ -80,9 +80,9 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommit, string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(commit)
@@ -170,7 +170,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
 			}
@@ -241,7 +241,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list branches: %s", string(body))), nil
 			}
@@ -354,7 +354,7 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 && resp.StatusCode != 201 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create/update file: %s", string(body))), nil
 			}
@@ -432,7 +432,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
 			}
@@ -526,7 +526,7 @@ func createResourceURI(owner, repo, path, sha, ref string) (string, error) {
 func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path, sha, ref string) (*mcp.CallToolResult, error) {
 	rawClient, err := getRawClient(ctx)
 	if err != nil {
-		return mcp.NewToolResultError(ErrFailedToGetRawClient), nil
+		return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
 	}
 
 	rawOpts := &raw.ContentOpts{
@@ -536,7 +536,7 @@ func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, owne
 
 	resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
 	if err != nil {
-		return mcp.NewToolResultError(ErrFailedToGetRawContent), nil
+		return mcp.NewToolResultError("failed to get raw repository content"), nil
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -553,7 +553,7 @@ func tryGetRawContent(ctx context.Context, getRawClient raw.GetRawClientFn, owne
 
 	resourceURI, err := createResourceURI(owner, repo, path, sha, ref)
 	if err != nil {
-		return nil, fmt.Errorf(ErrFailedToCreateResourceURI, err)
+		return nil, fmt.Errorf("failed to create resource URI: %w", err)
 	}
 
 	contentType := resp.Header.Get("Content-Type")
@@ -602,7 +602,7 @@ func getContentViaAPI(ctx context.Context, getClient GetClientFn, params *FileCo
 
 		resourceURI, err := createResourceURI(params.owner, params.repo, params.path, sha, ref)
 		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToCreateResourceURI, err)
+			return nil, fmt.Errorf("failed to create resource URI: %w", err)
 		}
 
 		return mcp.NewToolResultResource("successfully retrieved file content", mcp.TextResourceContents{
@@ -730,7 +730,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			if resp.StatusCode != http.StatusAccepted {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to fork repository: %s", string(body))), nil
 			}
@@ -827,9 +827,9 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf(ErrFailedToGetCommit, string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get commit: %s", string(body))), nil
 			}
 
 			// Create a tree entry for the file deletion by setting SHA to nil
@@ -856,7 +856,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create tree: %s", string(body))), nil
 			}
@@ -880,7 +880,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusCreated {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create commit: %s", string(body))), nil
 			}
@@ -900,7 +900,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update reference: %s", string(body))), nil
 			}
@@ -1248,7 +1248,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list tags: %s", string(body))), nil
 			}
@@ -1316,7 +1316,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag reference: %s", string(body))), nil
 			}
@@ -1335,7 +1335,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get tag object: %s", string(body))), nil
 			}
