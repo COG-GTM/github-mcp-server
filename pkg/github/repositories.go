@@ -20,6 +20,9 @@ import (
 	"github.com/github/github-mcp-server/pkg/translations"
 )
 
+const (
+	RepoURIScheme = "repo://"
+)
 
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
@@ -619,11 +622,11 @@ func buildFileContentResult(resp *http.Response, params *fileContentsParams, raw
 func buildResourceURI(params *fileContentsParams, rawOpts *raw.ContentOpts) (string, error) {
 	switch {
 	case rawOpts.SHA != "":
-		return url.JoinPath("repo://", params.owner, params.repo, "sha", rawOpts.SHA, "contents", params.path)
+		return url.JoinPath(RepoURIScheme, params.owner, params.repo, "sha", rawOpts.SHA, "contents", params.path)
 	case rawOpts.Ref != "":
-		return url.JoinPath("repo://", params.owner, params.repo, rawOpts.Ref, "contents", params.path)
+		return url.JoinPath(RepoURIScheme, params.owner, params.repo, rawOpts.Ref, "contents", params.path)
 	default:
-		return url.JoinPath("repo://", params.owner, params.repo, "contents", params.path)
+		return url.JoinPath(RepoURIScheme, params.owner, params.repo, "contents", params.path)
 	}
 }
 

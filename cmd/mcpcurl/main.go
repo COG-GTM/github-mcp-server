@@ -179,19 +179,27 @@ func getPrettyPrintFlag() bool {
 
 func loadToolsFromServer(prettyPrint bool) {
 	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
-	if err == nil && serverCmd != "" {
-		jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
-		if err == nil {
-			response, err := executeServerCommand(serverCmd, jsonRequest)
-			if err == nil {
-				var schemaResp SchemaResponse
-				if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
-					for _, tool := range schemaResp.Result.Tools {
-						addCommandFromTool(toolsCmd, &tool, prettyPrint)
-					}
-				}
-			}
-		}
+	if err != nil || serverCmd == "" {
+		return
+	}
+
+	jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
+	if err != nil {
+		return
+	}
+
+	response, err := executeServerCommand(serverCmd, jsonRequest)
+	if err != nil {
+		return
+	}
+
+	var schemaResp SchemaResponse
+	if err := json.Unmarshal([]byte(response), &schemaResp); err != nil {
+		return
+	}
+
+	for _, tool := range schemaResp.Result.Tools {
+		addCommandFromTool(toolsCmd, &tool, prettyPrint)
 	}
 }
 
