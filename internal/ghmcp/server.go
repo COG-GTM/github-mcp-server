@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,7 +21,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/shurcooL/githubv4"
-	"github.com/sirupsen/logrus"
 )
 
 type MCPServerConfig struct {
@@ -203,17 +202,19 @@ func RunStdioServer(cfg StdioServerConfig) error {
 
 	stdioServer := server.NewStdioServer(ghServer)
 
-	logrusLogger := logrus.New()
+	var logger *slog.Logger
 	if cfg.LogFilePath != "" {
 		file, err := os.OpenFile(cfg.LogFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to open log file: %w", err)
 		}
 
-		logrusLogger.SetLevel(logrus.DebugLevel)
-		logrusLogger.SetOutput(file)
+		handler := slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelDebug})
+		logger = slog.New(handler)
+	} else {
+		logger = slog.Default()
 	}
-	stdLogger := log.New(logrusLogger.Writer(), "stdioserver", 0)
+	stdLogger := slog.NewLogLogger(logger.Handler(), slog.LevelInfo)
 	stdioServer.SetErrorLogger(stdLogger)
 
 	if cfg.ExportTranslations {
@@ -227,7 +228,7 @@ func RunStdioServer(cfg StdioServerConfig) error {
 		in, out := io.Reader(os.Stdin), io.Writer(os.Stdout)
 
 		if cfg.EnableCommandLogging {
-			loggedIO := mcplog.NewIOLogger(in, out, logrusLogger)
+			loggedIO := mcplog.NewIOLogger(in, out, logger)
 			in, out = loggedIO, loggedIO
 		}
 		// enable GitHub errors in the context
@@ -241,7 +242,7 @@ func RunStdioServer(cfg StdioServerConfig) error {
 	// Wait for shutdown signal
 	select {
 	case <-ctx.Done():
-		logrusLogger.Infof("shutting down server...")
+		logger.Info("shutting down server...")
 	case err := <-errC:
 		if err != nil {
 			return fmt.Errorf("error running server: %w", err)
