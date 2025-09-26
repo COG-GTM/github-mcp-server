@@ -203,16 +203,18 @@ func RunStdioServer(cfg StdioServerConfig) error {
 
 	stdioServer := server.NewStdioServer(ghServer)
 
-	slogLogger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	var logOutput io.Writer = os.Stderr
+	slogLogger := slog.New(slog.NewTextHandler(logOutput, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	if cfg.LogFilePath != "" {
 		file, err := os.OpenFile(cfg.LogFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			return fmt.Errorf("failed to open log file: %w", err)
 		}
 
+		logOutput = file
 		slogLogger = slog.New(slog.NewTextHandler(file, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	}
-	stdLogger := log.New(os.Stderr, "stdioserver", 0)
+	stdLogger := log.New(logOutput, "stdioserver", 0)
 	stdioServer.SetErrorLogger(stdLogger)
 
 	if cfg.ExportTranslations {
