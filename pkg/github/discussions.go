@@ -13,10 +13,6 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
-func gqlClientError(err error) string {
-	return fmt.Sprintf("failed to get GitHub GQL client: %v", err)
-}
-
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -55,7 +51,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(gqlClientError(err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
 			}
 
 			// If category filter is specified, use it as the category ID for server-side filtering
@@ -191,7 +187,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(gqlClientError(err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
 			}
 
 			var q struct {
@@ -262,7 +258,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(gqlClientError(err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
 			}
 
 			var q struct {
@@ -360,7 +356,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 
 			client, err := getGQLClient(ctx)
 			if err != nil {
-				return mcp.NewToolResultError(gqlClientError(err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
 			}
 			var q struct {
 				Repository struct {
