@@ -28,29 +28,15 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 				Title:        t("TOOL_LIST_WORKFLOWS_USER_TITLE", "List workflows"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryName),
-			),
-			mcp.WithNumber("per_page",
-				mcp.Description("The number of results per page (max 100)"),
-			),
-			mcp.WithNumber("page",
-				mcp.Description("The page number of the results to fetch"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
+			withPerPageParam(),
+			withPageParam(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 
 			// Get optional pagination parameters

@@ -24,27 +24,17 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 				Title:        t("TOOL_GET_PULL_REQUEST_USER_TITLE", "Get pull request details"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -76,14 +66,8 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 				Title:        t("TOOL_CREATE_PULL_REQUEST_USER_TITLE", "Open new pull request"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithString("title",
 				mcp.Required(),
 				mcp.Description("PR title"),
@@ -107,13 +91,9 @@ func CreatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			title, err := RequiredParam[string](request, "title")
 			if err != nil {
@@ -190,14 +170,8 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 				Title:        t("TOOL_UPDATE_PULL_REQUEST_USER_TITLE", "Edit pull request"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number to update"),
@@ -220,13 +194,9 @@ func UpdatePullRequest(getClient GetClientFn, t translations.TranslationHelperFu
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -310,14 +280,8 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 				Title:        t("TOOL_LIST_PULL_REQUESTS_USER_TITLE", "List pull requests"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithString("state",
 				mcp.Description("Filter by state"),
 				mcp.Enum("open", "closed", "all"),
@@ -339,13 +303,9 @@ func ListPullRequests(getClient GetClientFn, t translations.TranslationHelperFun
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			state, err := OptionalParam[string](request, "state")
 			if err != nil {
@@ -418,14 +378,8 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 				Title:        t("TOOL_MERGE_PULL_REQUEST_USER_TITLE", "Merge pull request"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -442,13 +396,9 @@ func MergePullRequest(getClient GetClientFn, t translations.TranslationHelperFun
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -551,14 +501,8 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 				Title:        t("TOOL_GET_PULL_REQUEST_FILES_USER_TITLE", "Get pull request files"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -566,13 +510,9 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -621,27 +561,17 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 				Title:        t("TOOL_GET_PULL_REQUEST_STATUS_USER_TITLE", "Get pull request status checks"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -701,14 +631,8 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 				Title:        t("TOOL_UPDATE_PULL_REQUEST_BRANCH_USER_TITLE", "Update pull request branch"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -718,13 +642,9 @@ func UpdatePullRequestBranch(getClient GetClientFn, t translations.TranslationHe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -778,27 +698,17 @@ func GetPullRequestComments(getClient GetClientFn, t translations.TranslationHel
 				Title:        t("TOOL_GET_PULL_REQUEST_COMMENTS_USER_TITLE", "Get pull request comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -845,27 +755,17 @@ func GetPullRequestReviews(getClient GetClientFn, t translations.TranslationHelp
 				Title:        t("TOOL_GET_PULL_REQUEST_REVIEWS_USER_TITLE", "Get pull request reviews"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			owner, repo, errResult := parseOwnerRepo(request)
+			if errResult != nil {
+				return errResult, nil
 			}
 			pullNumber, err := RequiredInt(request, "pullNumber")
 			if err != nil {
@@ -908,14 +808,8 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 			// Either we need the PR GQL Id directly, or we need owner, repo and PR number to look it up.
 			// Since our other Pull Request tools are working with the REST Client, will handle the lookup
 			// internally for now.
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1011,14 +905,8 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// Either we need the PR GQL Id directly, or we need owner, repo and PR number to look it up.
 			// Since our other Pull Request tools are working with the REST Client, will handle the lookup
 			// internally for now.
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1109,14 +997,8 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 			// 	mcp.Required(),
 			// 	mcp.Description("The ID of the pull request review to add a comment to"),
 			// ),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1270,14 +1152,8 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// add a new tool to get that ID for clients that aren't in the same context as the original pending review
 			// creation. So for now, we'll just accept the owner, repo and pull number and assume this is submitting
 			// the latest review from a user, since only one can be active at a time.
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1404,14 +1280,8 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 			// add a new tool to get that ID for clients that aren't in the same context as the original pending review
 			// creation. So for now, we'll just accept the owner, repo and pull number and assume this is deleting
 			// the latest pending review from a user, since only one can be active at a time.
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1519,14 +1389,8 @@ func GetPullRequestDiff(getClient GetClientFn, t translations.TranslationHelperF
 				Title:        t("TOOL_GET_PULL_REQUEST_DIFF_USER_TITLE", "Get pull request diff"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),
@@ -1587,14 +1451,8 @@ func RequestCopilotReview(getClient GetClientFn, t translations.TranslationHelpe
 				Title:        t("TOOL_REQUEST_COPILOT_REVIEW_USER_TITLE", "Request Copilot review"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description("Repository owner"),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description("Repository name"),
-			),
+			withOwnerParam(),
+			withRepoParam(),
 			mcp.WithNumber("pullNumber",
 				mcp.Required(),
 				mcp.Description("Pull request number"),

@@ -14,6 +14,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	DescriptionPerPage = "Number of results per page"
+	DescriptionPage    = "Page number for pagination"
+)
+
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
 
 func handleAPIResponse(ctx context.Context, resp *github.Response, err error, operation string) (*mcp.CallToolResult, bool) {
@@ -41,6 +46,36 @@ func marshalAndReturn(result interface{}) (*mcp.CallToolResult, error) {
 		return nil, fmt.Errorf(ErrMarshalResponse, err)
 	}
 	return mcp.NewToolResultText(string(r)), nil
+}
+
+func withOwnerParam() mcp.ToolOption {
+	return mcp.WithString("owner", mcp.Required(), mcp.Description(DescriptionRepositoryOwner))
+}
+
+func withRepoParam() mcp.ToolOption {
+	return mcp.WithString("repo", mcp.Required(), mcp.Description(DescriptionRepositoryName))
+}
+
+func withPerPageParam() mcp.ToolOption {
+	return mcp.WithNumber("per_page", mcp.Description(DescriptionPerPage))
+}
+
+func withPageParam() mcp.ToolOption {
+	return mcp.WithNumber("page", mcp.Description(DescriptionPage))
+}
+
+func parseOwnerRepo(request mcp.CallToolRequest) (owner, repo string, result *mcp.CallToolResult) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", mcp.NewToolResultError(err.Error())
+	}
+
+	return owner, repo, nil
 }
 
 func NewServer(version string, opts ...server.ServerOption) *server.MCPServer {
