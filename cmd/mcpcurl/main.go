@@ -168,30 +168,9 @@ func main() {
 	// Execute the root command once to parse flags
 	_ = rootCmd.ParseFlags(os.Args[1:])
 
-	// Get pretty flag
-	prettyPrint, err := rootCmd.Flags().GetBool("pretty")
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Error getting pretty flag: %v\n", err)
-		os.Exit(1)
-	}
-	// Get server command
-	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
-	if err == nil && serverCmd != "" {
-		// Fetch schema from server
-		jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
-		if err == nil {
-			response, err := executeServerCommand(serverCmd, jsonRequest)
-			if err == nil {
-				// Parse the schema response
-				var schemaResp SchemaResponse
-				if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
-					// Add all the generated commands as subcommands of tools
-					for _, tool := range schemaResp.Result.Tools {
-						addCommandFromTool(toolsCmd, &tool, prettyPrint)
-					}
-				}
-			}
-		}
+	// Load schema and generate tool commands
+	if err := loadSchemaAndGenerateCommands(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Warning: failed to load schema: %v\n", err)
 	}
 
 	// Execute
@@ -199,6 +178,49 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// loadSchemaAndGenerateCommands fetches the schema from the server and generates tool commands
+func loadSchemaAndGenerateCommands() error {
+	// Get pretty flag
+	prettyPrint, err := rootCmd.Flags().GetBool("pretty")
+	if err != nil {
+		return fmt.Errorf("failed to get pretty flag: %w", err)
+	}
+
+	// Get server command
+	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
+	if err != nil {
+		return fmt.Errorf("failed to get stdio-server-cmd: %w", err)
+	}
+
+	if serverCmd == "" {
+		return nil // No server command provided
+	}
+
+	// Fetch schema from server
+	jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
+	if err != nil {
+		return fmt.Errorf("failed to build JSON-RPC request: %w", err)
+	}
+
+	response, err := executeServerCommand(serverCmd, jsonRequest)
+	if err != nil {
+		return fmt.Errorf("failed to execute server command: %w", err)
+	}
+
+	// Parse the schema response
+	var schemaResp SchemaResponse
+	if err := json.Unmarshal([]byte(response), &schemaResp); err != nil {
+		return fmt.Errorf("failed to unmarshal schema response: %w", err)
+	}
+
+	// Add all the generated commands as subcommands of tools
+	for _, tool := range schemaResp.Result.Tools {
+		addCommandFromTool(toolsCmd, &tool, prettyPrint)
+	}
+
+	return nil
 }
 
 // addCommandFromTool creates a cobra command from a tool schema
