@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -70,12 +69,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issue: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(issue)
 		}
 }
 
@@ -144,12 +138,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create comment: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(createdComment)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(createdComment)
 		}
 }
 
@@ -311,12 +300,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				return mcp.NewToolResultError(fmt.Sprintf("failed to create issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issue)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(issue)
 		}
 }
 
@@ -433,12 +417,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(issues)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(issues)
 		}
 }
 
@@ -579,12 +558,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				return mcp.NewToolResultError(fmt.Sprintf("failed to update issue: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(updatedIssue)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(updatedIssue)
 		}
 }
 
@@ -662,12 +636,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue comments: %s", string(body))), nil
 			}
 
-			r, err := json.Marshal(comments)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(comments)
 		}
 }
 
