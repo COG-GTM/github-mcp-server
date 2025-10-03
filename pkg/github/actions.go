@@ -2,7 +2,6 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -81,12 +80,7 @@ func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) 
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(workflows)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(workflows)
 		}
 }
 
@@ -229,12 +223,7 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(workflowRuns)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(workflowRuns)
 		}
 }
 
@@ -328,12 +317,7 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				"status_code":   resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -384,12 +368,7 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(workflowRun)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(workflowRun)
 		}
 }
 
@@ -450,12 +429,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 				"optimization_tip": "Use: get_job_logs with parameters {run_id: " + fmt.Sprintf("%d", runID) + ", failed_only: true} for more efficient failed job debugging",
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -547,12 +521,7 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 				"optimization_tip": "For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id=" + fmt.Sprintf("%d", runID) + " to get logs directly without needing to list jobs first",
 			}
 
-			r, err := json.Marshal(response)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(response)
 		}
 }
 
@@ -676,8 +645,7 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 			"total_jobs":  len(jobs.Jobs),
 			"failed_jobs": 0,
 		}
-		r, _ := json.Marshal(result)
-		return mcp.NewToolResultText(string(r)), nil
+		return marshalAndReturn(result)
 	}
 
 	// Collect logs for all failed jobs
@@ -707,12 +675,7 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 		"return_format": map[string]bool{"content": returnContent, "urls": !returnContent},
 	}
 
-	r, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(r)), nil
+	return marshalAndReturn(result)
 }
 
 // handleSingleJobLogs gets logs for a single job
@@ -722,12 +685,7 @@ func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo
 		return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to get job logs", resp, err), nil
 	}
 
-	r, err := json.Marshal(jobResult)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(r)), nil
+	return marshalAndReturn(jobResult)
 }
 
 // getJobLogData retrieves log data for a single job, either as URL or content
@@ -867,12 +825,7 @@ func RerunWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFun
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -930,12 +883,7 @@ func RerunFailedJobs(getClient GetClientFn, t translations.TranslationHelperFunc
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -993,12 +941,7 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -1071,12 +1014,7 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(artifacts)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(artifacts)
 		}
 }
 
@@ -1136,12 +1074,7 @@ func DownloadWorkflowRunArtifact(getClient GetClientFn, t translations.Translati
 				"artifact_id":  artifactID,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -1200,12 +1133,7 @@ func DeleteWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelp
 				"status_code": resp.StatusCode,
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -1256,11 +1184,6 @@ func GetWorkflowRunUsage(getClient GetClientFn, t translations.TranslationHelper
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			r, err := json.Marshal(usage)
-			if err != nil {
-				return nil, fmt.Errorf(ErrMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(usage)
 		}
 }
