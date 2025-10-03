@@ -63,7 +63,7 @@ func searchHandler(
 
 	client, err := getClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to get GitHub client: %w", errorPrefix, err)
+		return nil, fmt.Errorf("%s: "+ErrGetGitHubClient, errorPrefix, err)
 	}
 	result, resp, err := client.Search.Issues(ctx, query, opts)
 	if err != nil {
@@ -74,14 +74,14 @@ func searchHandler(
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read response body: %w", errorPrefix, err)
+			return nil, fmt.Errorf("%s: "+ErrReadResponseBody, errorPrefix, err)
 		}
 		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errorPrefix, string(body))), nil
 	}
 
 	r, err := json.Marshal(result)
 	if err != nil {
-		return nil, fmt.Errorf("%s: failed to marshal response: %w", errorPrefix, err)
+		return nil, fmt.Errorf("%s: "+ErrMarshalResponse, errorPrefix, err)
 	}
 
 	return mcp.NewToolResultText(string(r)), nil
