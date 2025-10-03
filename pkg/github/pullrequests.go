@@ -578,6 +578,23 @@ func SearchPullRequests(getClient GetClientFn, t translations.TranslationHelperF
 		}
 }
 
+func extractPRFilesParams(request mcp.CallToolRequest) (owner string, repo string, pullNumber int, pagination PaginationParams, err error) {
+	owner, err = RequiredParam[string](request, "owner")
+	if err != nil {
+		return
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return
+	}
+	pullNumber, err = RequiredInt(request, "pullNumber")
+	if err != nil {
+		return
+	}
+	pagination, err = OptionalPaginationParams(request)
+	return
+}
+
 // GetPullRequestFiles creates a tool to get the list of files changed in a pull request.
 func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request_files",
@@ -601,19 +618,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pullNumber, err := RequiredInt(request, "pullNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
+			owner, repo, pullNumber, pagination, err := extractPRFilesParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
