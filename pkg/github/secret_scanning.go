@@ -2,12 +2,8 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 
-	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -51,33 +47,19 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrGetGitHubClient, err)
 			}
 
 			alert, resp, err := client.SecretScanning.GetAlert(ctx, owner, repo, int64(alertNumber))
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to get alert with number '%d'", alertNumber),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			if errResult, hasError := handleAPIResponse(ctx, resp, err, fmt.Sprintf("failed to get alert with number '%d'", alertNumber)); hasError {
+				if errResult != nil {
+					return errResult, nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+				return nil, fmt.Errorf(ErrReadResponseBody, err)
 			}
 
-			r, err := json.Marshal(alert)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alert: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(alert)
 		}
 }
 
@@ -133,31 +115,17 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrGetGitHubClient, err)
 			}
 			alerts, resp, err := client.SecretScanning.ListAlertsForRepo(ctx, owner, repo, &github.SecretScanningAlertListOptions{State: state, SecretType: secretType, Resolution: resolution})
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to list alerts for repository '%s/%s'", owner, repo),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			if errResult, hasError := handleAPIResponse(ctx, resp, err, fmt.Sprintf("failed to list alerts for repository '%s/%s'", owner, repo)); hasError {
+				if errResult != nil {
+					return errResult, nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+				return nil, fmt.Errorf(ErrReadResponseBody, err)
 			}
 
-			r, err := json.Marshal(alerts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(alerts)
 		}
 }

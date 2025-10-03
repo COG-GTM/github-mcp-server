@@ -2,11 +2,8 @@ package github
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 
-	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/github/github-mcp-server/pkg/translations"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -46,32 +43,18 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrGetGitHubClient, err)
 			}
 			result, resp, err := client.Search.Repositories(ctx, query, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to search repositories with query '%s'", query),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			if errResult, hasError := handleAPIResponse(ctx, resp, err, fmt.Sprintf("failed to search repositories with query '%s'", query)); hasError {
+				if errResult != nil {
+					return errResult, nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
+				return nil, fmt.Errorf(ErrReadResponseBody, err)
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -125,33 +108,19 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(ErrGetGitHubClient, err)
 			}
 
 			result, resp, err := client.Search.Code(ctx, query, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to search code with query '%s'", query),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+			if errResult, hasError := handleAPIResponse(ctx, resp, err, fmt.Sprintf("failed to search code with query '%s'", query)); hasError {
+				if errResult != nil {
+					return errResult, nil
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
+				return nil, fmt.Errorf(ErrReadResponseBody, err)
 			}
 
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return marshalAndReturn(result)
 		}
 }
 
@@ -198,26 +167,17 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		client, err := getClient(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+			return nil, fmt.Errorf(ErrGetGitHubClient, err)
 		}
 
 		searchQuery := "type:" + accountType + " " + query
 		result, resp, err := client.Search.Users(ctx, searchQuery, opts)
-		if err != nil {
-			return ghErrors.NewGitHubAPIErrorResponse(ctx,
-				fmt.Sprintf("failed to search %ss with query '%s'", accountType, query),
-				resp,
-				err,
-			), nil
-		}
-		defer func() { _ = resp.Body.Close() }()
 
-		if resp.StatusCode != 200 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+		if errResult, hasError := handleAPIResponse(ctx, resp, err, fmt.Sprintf("failed to search %ss with query '%s'", accountType, query)); hasError {
+			if errResult != nil {
+				return errResult, nil
 			}
-			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
+			return nil, fmt.Errorf(ErrReadResponseBody, err)
 		}
 
 		minimalUsers := make([]MinimalUser, 0, len(result.Users))
@@ -249,11 +209,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			minimalResp.IncompleteResults = *result.IncompleteResults
 		}
 
-		r, err := json.Marshal(minimalResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal response: %w", err)
-		}
-		return mcp.NewToolResultText(string(r)), nil
+		return marshalAndReturn(minimalResp)
 	}
 }
 
