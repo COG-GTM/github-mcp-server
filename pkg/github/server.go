@@ -1,16 +1,47 @@
 package github
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
+
+func handleAPIResponse(ctx context.Context, resp *github.Response, err error, operation string) (*mcp.CallToolResult, bool) {
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx, operation, resp, err), true
+	}
+	if resp == nil {
+		return nil, false
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, true
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", operation, string(body))), true
+	}
+	return nil, false
+}
+
+func marshalAndReturn(result interface{}) (*mcp.CallToolResult, error) {
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(ErrMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
 
 func NewServer(version string, opts ...server.ServerOption) *server.MCPServer {
 	// Add default options

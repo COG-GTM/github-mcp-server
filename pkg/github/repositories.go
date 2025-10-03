@@ -477,11 +477,11 @@ func resolvePRReference(ctx context.Context, getClient GetClientFn, owner, repo,
 func buildResourceURI(owner, repo, path, sha, ref string) (string, error) {
 	switch {
 	case sha != "":
-		return url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+		return url.JoinPath(RepoURIPrefix, owner, repo, "sha", sha, "contents", path)
 	case ref != "":
-		return url.JoinPath("repo://", owner, repo, ref, "contents", path)
+		return url.JoinPath(RepoURIPrefix, owner, repo, ref, "contents", path)
 	default:
-		return url.JoinPath("repo://", owner, repo, "contents", path)
+		return url.JoinPath(RepoURIPrefix, owner, repo, "contents", path)
 	}
 }
 
