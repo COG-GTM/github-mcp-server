@@ -10,6 +10,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
+)
+
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
 
 func NewServer(version string, opts ...server.ServerOption) *server.MCPServer {
