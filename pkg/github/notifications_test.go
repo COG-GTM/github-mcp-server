@@ -559,7 +559,7 @@ func Test_DismissNotification(t *testing.T) {
 				case tc.name == "invalid threadID format":
 					assert.Contains(t, text, "invalid threadID format")
 				case tc.name == "invalid state value":
-					assert.Contains(t, text, "Invalid state. Must be one of: read, done.")
+					assert.Contains(t, text, "invalid state; must be one of: read, done")
 				default:
 					// fallback for other errors
 					assert.Contains(t, text, "error")
