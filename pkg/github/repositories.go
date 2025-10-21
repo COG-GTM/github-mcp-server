@@ -101,54 +101,6 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 }
 
 // ListCommits creates a tool to get commits of a branch in a repository.
-
-func extractListCommitsParams(request mcp.CallToolRequest) (owner, repo, sha, author string, pagination PaginationParams, err error) {
-	owner, err = RequiredParam[string](request, "owner")
-	if err != nil {
-		return
-	}
-	repo, err = RequiredParam[string](request, "repo")
-	if err != nil {
-		return
-	}
-	sha, err = OptionalParam[string](request, "sha")
-	if err != nil {
-		return
-	}
-	author, err = OptionalParam[string](request, "author")
-	if err != nil {
-		return
-	}
-	pagination, err = OptionalPaginationParams(request)
-	return
-}
-
-func processListCommitsResponse(ctx context.Context, resp *github.Response, commits []*github.RepositoryCommit, err error, sha string) (*mcp.CallToolResult, error) {
-	if err != nil {
-		return ghErrors.NewGitHubAPIErrorResponse(ctx,
-			fmt.Sprintf("failed to list commits: %s", sha),
-			resp,
-			err,
-		), nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 200 {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
-		}
-		return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
-	}
-
-	r, err := json.Marshal(commits)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", errMarshalResponse, err)
-	}
-
-	return mcp.NewToolResultText(string(r)), nil
-}
-
 func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_commits",
 			mcp.WithDescription(t("TOOL_LIST_COMMITS_DESCRIPTION", "Get list of commits of a branch in a GitHub repository. Returns at least 30 results per page by default, but can return more if specified using the perPage parameter (up to 100).")),
@@ -173,7 +125,27 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, repo, sha, author, pagination, err := extractListCommitsParams(request)
+			owner, err := RequiredParam[string](request, "owner")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			repo, err := RequiredParam[string](request, "repo")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			sha, err := OptionalParam[string](request, "sha")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			author, err := OptionalParam[string](request, "author")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -182,6 +154,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if perPage == 0 {
 				perPage = 30
 			}
+
 			opts := &github.CommitsListOptions{
 				SHA:    sha,
 				Author: author,
@@ -195,9 +168,31 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", errGetGitHubClient, err)
 			}
-			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
 
-			return processListCommitsResponse(ctx, resp, commits, err, sha)
+			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
+			if err != nil {
+				return ghErrors.NewGitHubAPIErrorResponse(ctx,
+					fmt.Sprintf("failed to list commits: %s", sha),
+					resp,
+					err,
+				), nil
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			if resp.StatusCode != 200 {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
+				}
+				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
+			}
+
+			r, err := json.Marshal(commits)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", errMarshalResponse, err)
+			}
+
+			return mcp.NewToolResultText(string(r)), nil
 		}
 }
 
