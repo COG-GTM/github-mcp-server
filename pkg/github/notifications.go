@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	ghErrors "github.com/github/github-mcp-server/pkg/errors"
@@ -21,6 +22,29 @@ const (
 	FilterIncludeRead       = "include_read_notifications"
 	FilterOnlyParticipating = "only_participating"
 )
+
+func parseThreadID(threadID string) (int64, error) {
+	threadIDInt, err := strconv.ParseInt(threadID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid threadID format: %v", err)
+	}
+	return threadIDInt, nil
+}
+
+func markNotificationByState(ctx context.Context, client *github.Client, threadID string, state string) (*github.Response, error) {
+	switch state {
+	case "done":
+		threadIDInt, err := parseThreadID(threadID)
+		if err != nil {
+			return nil, err
+		}
+		return client.Activity.MarkThreadDone(ctx, threadIDInt)
+	case "read":
+		return client.Activity.MarkThreadRead(ctx, threadID)
+	default:
+		return nil, fmt.Errorf("Invalid state. Must be one of: read, done.")
+	}
+}
 
 // ListNotifications creates a tool to list notifications for the current user.
 func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -175,23 +199,14 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var resp *github.Response
-			switch state {
-			case "done":
-				// for some inexplicable reason, the API seems to have threadID as int64 and string depending on the endpoint
-				var threadIDInt int64
-				threadIDInt, err = strconv.ParseInt(threadID, 10, 64)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid threadID format: %v", err)), nil
-				}
-				resp, err = client.Activity.MarkThreadDone(ctx, threadIDInt)
-			case "read":
-				resp, err = client.Activity.MarkThreadRead(ctx, threadID)
-			default:
-				return mcp.NewToolResultError("Invalid state. Must be one of: read, done."), nil
-			}
-
+			resp, err := markNotificationByState(ctx, client, threadID, state)
 			if err != nil {
+				if strings.Contains(err.Error(), "invalid threadID format") {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				if strings.Contains(err.Error(), "invalid state") {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					fmt.Sprintf("failed to mark notification as %s", state),
 					resp,
