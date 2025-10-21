@@ -61,14 +61,14 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", errMarshalResponse, err)
+				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -141,14 +141,14 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
+					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", errMarshalResponse, err)
+				return nil, fmt.Errorf("failed to marshal response: %w", err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -215,7 +215,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 		if resp.StatusCode != 200 {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
@@ -251,7 +251,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		r, err := json.Marshal(minimalResp)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", errMarshalResponse, err)
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
 		}
 		return mcp.NewToolResultText(string(r)), nil
 	}

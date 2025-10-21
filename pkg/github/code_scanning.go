@@ -63,13 +63,13 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+		if resp.StatusCode != http.StatusOK {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+		}
 
 			r, err := json.Marshal(alert)
 			if err != nil {
@@ -151,13 +151,13 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+		if resp.StatusCode != http.StatusOK {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
+			return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+		}
 
 			r, err := json.Marshal(alerts)
 			if err != nil {

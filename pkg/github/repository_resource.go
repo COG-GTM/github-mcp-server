@@ -113,7 +113,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// fetch the PR from the API to get the latest commit and use SHA
 			githubClient, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", errGetGitHubClient, err)
+				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 			prNum, err := strconv.Atoi(prNumber[0])
 			if err != nil {
@@ -181,7 +181,7 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 			// If we got a response but it is not 200 OK, we return an error
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", errReadResponseBody, err)
+				return nil, fmt.Errorf("failed to read response body: %w", err)
 			}
 			return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
 		default:
