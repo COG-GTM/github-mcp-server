@@ -42,7 +42,7 @@ func markNotificationByState(ctx context.Context, client *github.Client, threadI
 	case "read":
 		return client.Activity.MarkThreadRead(ctx, threadID)
 	default:
-		return nil, fmt.Errorf("Invalid state. Must be one of: read, done.")
+		return nil, fmt.Errorf("invalid state; must be one of: read, done")
 	}
 }
 
