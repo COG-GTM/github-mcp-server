@@ -123,27 +123,32 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+
 			repo, err := RequiredParam[string](request, "repo")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+
 			sha, err := OptionalParam[string](request, "sha")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+
 			author, err := OptionalParam[string](request, "author")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
+
 			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			// Set default perPage to 30 if not provided
+
 			perPage := pagination.perPage
 			if perPage == 0 {
 				perPage = 30
 			}
+
 			opts := &github.CommitsListOptions{
 				SHA:    sha,
 				Author: author,
@@ -157,6 +162,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
+
 			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
