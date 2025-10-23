@@ -14,6 +14,17 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+func validateResponseAndReadBody(resp *github.Response, successCode int, errorPrefix string) (*mcp.CallToolResult, error) {
+	if resp.StatusCode != successCode {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errorPrefix, string(body))), nil
+	}
+	return nil, nil
+}
+
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_code_scanning_alert",
 			mcp.WithDescription(t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository.")),
@@ -63,12 +74,8 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
+			if result, err := validateResponseAndReadBody(resp, http.StatusOK, "failed to get alert"); result != nil || err != nil {
+				return result, err
 			}
 
 			r, err := json.Marshal(alert)
@@ -151,12 +158,8 @@ func ListCodeScanningAlerts(getClient GetClientFn, t translations.TranslationHel
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
+			if result, err := validateResponseAndReadBody(resp, http.StatusOK, "failed to list alerts"); result != nil || err != nil {
+				return result, err
 			}
 
 			r, err := json.Marshal(alerts)

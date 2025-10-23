@@ -74,7 +74,7 @@ func searchHandler(
 	if resp.StatusCode != http.StatusOK {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read response body: %w", errorPrefix, err)
+			return nil, fmt.Errorf("%s: "+ErrFailedToReadResponseBody, errorPrefix, err)
 		}
 		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errorPrefix, string(body))), nil
 	}
