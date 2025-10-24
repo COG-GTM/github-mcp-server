@@ -445,6 +445,39 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			return mcp.NewToolResultText(string(r)), nil
 		}
 }
+func tryRawContentFetch(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path string, opts *raw.ContentOpts) (*http.Response, error) {
+	rawClient, err := getRawClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GitHub raw content client: %w", err)
+	}
+	return rawClient.GetRawContent(ctx, owner, repo, path, opts)
+}
+
+func buildResourceURI(owner, repo, path, sha, ref string) (string, error) {
+	switch {
+	case sha != "":
+		return url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+	case ref != "":
+		return url.JoinPath("repo://", owner, repo, ref, "contents", path)
+	default:
+		return url.JoinPath("repo://", owner, repo, "contents", path)
+	}
+}
+
+func createResourceContent(body []byte, contentType, uri string) mcp.ResourceContents {
+	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
+		return mcp.TextResourceContents{
+			URI:      uri,
+			Text:     string(body),
+			MIMEType: contentType,
+		}
+	}
+	return mcp.BlobResourceContents{
+		URI:      uri,
+		Blob:     base64.StdEncoding.EncodeToString(body),
+		MIMEType: contentType,
+	}
+}
 
 // GetFileContents creates a tool to get the contents of a file or directory from a GitHub repository.
 func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -523,12 +556,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 			// If the path is (most likely) not to be a directory, we will first try to get the raw content from the GitHub raw content API.
 			if path != "" && !strings.HasSuffix(path, "/") {
-
-				rawClient, err := getRawClient(ctx)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
-				}
-				resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
+				resp, err := tryRawContentFetch(ctx, getRawClient, owner, repo, path, rawOpts)
 				if err != nil {
 					return mcp.NewToolResultError("failed to get raw repository content"), nil
 				}
@@ -542,41 +570,19 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					if err != nil {
 						return mcp.NewToolResultError("failed to read response body"), nil
 					}
+
+					resourceURI, err := buildResourceURI(owner, repo, path, sha, ref)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create resource URI: %w", err)
+					}
+
 					contentType := resp.Header.Get("Content-Type")
+					resourceContent := createResourceContent(body, contentType, resourceURI)
 
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
+					if _, ok := resourceContent.(mcp.TextResourceContents); ok {
+						return mcp.NewToolResultResource("successfully downloaded text file", resourceContent), nil
 					}
-
-					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-						return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-							URI:      resourceURI,
-							Text:     string(body),
-							MIMEType: contentType,
-						}), nil
-					}
-
-					return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-						URI:      resourceURI,
-						Blob:     base64.StdEncoding.EncodeToString(body),
-						MIMEType: contentType,
-					}), nil
-
+					return mcp.NewToolResultResource("successfully downloaded binary file", resourceContent), nil
 				}
 			}
 
