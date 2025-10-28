@@ -149,13 +149,13 @@ func setupMCPClient(t *testing.T, options ...clientOption) *mcpClient.Client {
 		args = append(args, "github/e2e-github-mcp-server")
 
 		// Construct the env vars for the MCP Client to execute docker with
-		dockerEnvVars := []string{
-			fmt.Sprintf("GITHUB_PERSONAL_ACCESS_TOKEN=%s", token),
-			fmt.Sprintf("GITHUB_TOOLSETS=%s", strings.Join(opts.enabledToolsets, ",")),
+		dockerEnvVars := make([]string, 0, 3)
+		dockerEnvVars = append(dockerEnvVars, "GITHUB_PERSONAL_ACCESS_TOKEN="+token)
+		if len(opts.enabledToolsets) > 0 {
+			dockerEnvVars = append(dockerEnvVars, "GITHUB_TOOLSETS="+strings.Join(opts.enabledToolsets, ","))
 		}
-
 		if host != "" {
-			dockerEnvVars = append(dockerEnvVars, fmt.Sprintf("GITHUB_HOST=%s", host))
+			dockerEnvVars = append(dockerEnvVars, "GITHUB_HOST="+host)
 		}
 
 		// Create the client

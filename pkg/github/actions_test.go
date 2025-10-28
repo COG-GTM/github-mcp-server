@@ -805,16 +805,22 @@ func Test_GetJobLogs(t *testing.T) {
 		checkResponse  func(t *testing.T, response map[string]any)
 	}{
 		{
-			name: "successful single job logs with URL",
-			mockedClient: mock.NewMockedHTTPClient(
-				mock.WithRequestMatchHandler(
-					mock.GetReposActionsJobsLogsByOwnerByRepoByJobId,
-					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Location", "https://github.com/logs/job/123")
-						w.WriteHeader(http.StatusFound)
-					}),
-				),
-			),
+			name: "successful single job logs with content",
+			mockedClient: func() *http.Client {
+				testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("test log content"))
+				}))
+				return mock.NewMockedHTTPClient(
+					mock.WithRequestMatchHandler(
+						mock.GetReposActionsJobsLogsByOwnerByRepoByJobId,
+						http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+							w.Header().Set("Location", testServer.URL)
+							w.WriteHeader(http.StatusFound)
+						}),
+					),
+				)
+			}(),
 			requestArgs: map[string]any{
 				"owner":  "owner",
 				"repo":   "repo",
@@ -823,9 +829,10 @@ func Test_GetJobLogs(t *testing.T) {
 			expectError: false,
 			checkResponse: func(t *testing.T, response map[string]any) {
 				assert.Equal(t, float64(123), response["job_id"])
-				assert.Contains(t, response, "logs_url")
-				assert.Equal(t, "Job logs are available for download", response["message"])
-				assert.Contains(t, response, "note")
+				assert.Contains(t, response, "logs_content")
+				assert.Equal(t, "test log content", response["logs_content"])
+				assert.Equal(t, "Job logs content retrieved successfully", response["message"])
+				assert.NotContains(t, response, "logs_url")
 			},
 		},
 		{
