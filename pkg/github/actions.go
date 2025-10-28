@@ -704,7 +704,7 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 		"total_jobs":    len(jobs.Jobs),
 		"failed_jobs":   len(failedJobs),
 		"logs":          logResults,
-		"return_format": map[string]bool{"content": returnContent, "urls": !returnContent},
+		"return_format": map[string]bool{"content": true, "urls": false},
 	}
 
 	r, err := json.Marshal(result)
@@ -730,8 +730,8 @@ func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo
 	return mcp.NewToolResultText(string(r)), nil
 }
 
-// getJobLogData retrieves log data for a single job, either as URL or content
-func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, returnContent bool, tailLines int) (map[string]any, *github.Response, error) {
+// getJobLogData retrieves log data for a single job, always fetching content server-side
+func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, _ bool, tailLines int) (map[string]any, *github.Response, error) {
 	// Get the download URL for the job logs
 	url, resp, err := client.Actions.GetWorkflowJobLogs(ctx, owner, repo, jobID, 1)
 	if err != nil {
@@ -746,25 +746,17 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 		result["job_name"] = jobName
 	}
 
-	if returnContent {
-		// Download and return the actual log content
-		content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
-		if err != nil {
-			// To keep the return value consistent wrap the response as a GitHub Response
-			ghRes := &github.Response{
-				Response: httpResp,
-			}
-			return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
+	content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
+	if err != nil {
+		// To keep the return value consistent wrap the response as a GitHub Response
+		ghRes := &github.Response{
+			Response: httpResp,
 		}
-		result["logs_content"] = content
-		result["message"] = "Job logs content retrieved successfully"
-		result["original_length"] = originalLength
-	} else {
-		// Return just the URL
-		result["logs_url"] = url.String()
-		result["message"] = "Job logs are available for download"
-		result["note"] = "The logs_url provides a download link for the individual job logs in plain text format. Use return_content=true to get the actual log content."
+		return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
 	}
+	result["logs_content"] = content
+	result["message"] = "Job logs content retrieved directly (URLs with embedded authentication are not exposed for security reasons)"
+	result["original_length"] = originalLength
 
 	return result, resp, nil
 }

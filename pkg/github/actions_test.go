@@ -805,30 +805,6 @@ func Test_GetJobLogs(t *testing.T) {
 		checkResponse  func(t *testing.T, response map[string]any)
 	}{
 		{
-			name: "successful single job logs with URL",
-			mockedClient: mock.NewMockedHTTPClient(
-				mock.WithRequestMatchHandler(
-					mock.GetReposActionsJobsLogsByOwnerByRepoByJobId,
-					http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-						w.Header().Set("Location", "https://github.com/logs/job/123")
-						w.WriteHeader(http.StatusFound)
-					}),
-				),
-			),
-			requestArgs: map[string]any{
-				"owner":  "owner",
-				"repo":   "repo",
-				"job_id": float64(123),
-			},
-			expectError: false,
-			checkResponse: func(t *testing.T, response map[string]any) {
-				assert.Equal(t, float64(123), response["job_id"])
-				assert.Contains(t, response, "logs_url")
-				assert.Equal(t, "Job logs are available for download", response["message"])
-				assert.Contains(t, response, "note")
-			},
-		},
-		{
 			name: "successful failed jobs logs",
 			mockedClient: mock.NewMockedHTTPClient(
 				mock.WithRequestMatchHandler(
@@ -1092,8 +1068,8 @@ func Test_GetJobLogs_WithContentReturn(t *testing.T) {
 
 	assert.Equal(t, float64(123), response["job_id"])
 	assert.Equal(t, logContent, response["logs_content"])
-	assert.Equal(t, "Job logs content retrieved successfully", response["message"])
-	assert.NotContains(t, response, "logs_url") // Should not have URL when returning content
+	assert.Equal(t, "Job logs content retrieved directly (URLs with embedded authentication are not exposed for security reasons)", response["message"])
+	assert.NotContains(t, response, "logs_url")
 }
 
 func Test_GetJobLogs_WithContentReturnAndTailLines(t *testing.T) {
@@ -1141,6 +1117,6 @@ func Test_GetJobLogs_WithContentReturnAndTailLines(t *testing.T) {
 	assert.Equal(t, float64(123), response["job_id"])
 	assert.Equal(t, float64(1), response["original_length"])
 	assert.Equal(t, expectedLogContent, response["logs_content"])
-	assert.Equal(t, "Job logs content retrieved successfully", response["message"])
-	assert.NotContains(t, response, "logs_url") // Should not have URL when returning content
+	assert.Equal(t, "Job logs content retrieved directly (URLs with embedded authentication are not exposed for security reasons)", response["message"])
+	assert.NotContains(t, response, "logs_url")
 }
