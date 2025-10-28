@@ -2,6 +2,7 @@ package log
 
 import (
 	"io"
+	"regexp"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -12,6 +13,19 @@ type IOLogger struct {
 	reader io.Reader
 	writer io.Writer
 	logger *log.Logger
+}
+
+var (
+	githubPatRegex   = regexp.MustCompile(`ghp_[a-zA-Z0-9]{36}`)
+	bearerTokenRegex = regexp.MustCompile(`Bearer [a-zA-Z0-9+/=]+`)
+	authHeaderRegex  = regexp.MustCompile(`(?i)Authorization:\s*Bearer\s+[a-zA-Z0-9+/=]+`)
+)
+
+func sanitizeLogData(data []byte) []byte {
+	sanitized := githubPatRegex.ReplaceAll(data, []byte("[REDACTED]"))
+	sanitized = bearerTokenRegex.ReplaceAll(sanitized, []byte("Bearer [REDACTED]"))
+	sanitized = authHeaderRegex.ReplaceAll(sanitized, []byte("Authorization: Bearer [REDACTED]"))
+	return sanitized
 }
 
 // NewIOLogger creates a new IOLogger instance
@@ -30,7 +44,8 @@ func (l *IOLogger) Read(p []byte) (n int, err error) {
 	}
 	n, err = l.reader.Read(p)
 	if n > 0 {
-		l.logger.Infof("[stdin]: received %d bytes: %s", n, string(p[:n]))
+		sanitized := sanitizeLogData(p[:n])
+		l.logger.Infof("[stdin]: received %d bytes: %s", n, string(sanitized))
 	}
 	return n, err
 }
@@ -40,6 +55,7 @@ func (l *IOLogger) Write(p []byte) (n int, err error) {
 	if l.writer == nil {
 		return 0, io.ErrClosedPipe
 	}
-	l.logger.Infof("[stdout]: sending %d bytes: %s", len(p), string(p))
+	sanitized := sanitizeLogData(p)
+	l.logger.Infof("[stdout]: sending %d bytes: %s", len(p), string(sanitized))
 	return l.writer.Write(p)
 }
