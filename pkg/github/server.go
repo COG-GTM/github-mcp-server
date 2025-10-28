@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	ghErrors "github.com/github/github-mcp-server/pkg/errors"
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -70,7 +71,7 @@ func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
 
 	// Check if the parameter is present in the request
 	if _, ok := r.GetArguments()[p]; !ok {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
+		return zero, fmt.Errorf(ghErrors.ErrMissingRequiredParameter, p)
 	}
 
 	// Check if the parameter is of the expected type
@@ -80,7 +81,7 @@ func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
 	}
 
 	if val == zero {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
+		return zero, fmt.Errorf(ghErrors.ErrMissingRequiredParameter, p)
 	}
 
 	return val, nil
