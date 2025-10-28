@@ -651,7 +651,7 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 }
 
 // handleFailedJobLogs gets logs for all failed jobs in a workflow run
-func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo string, runID int64, returnContent bool, tailLines int) (*mcp.CallToolResult, error) {
+func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo string, runID int64, _ bool, tailLines int) (*mcp.CallToolResult, error) {
 	// First, get all jobs for the workflow run
 	jobs, resp, err := client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, &github.ListWorkflowJobsOptions{
 		Filter: "latest",
@@ -683,7 +683,7 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 	// Collect logs for all failed jobs
 	var logResults []map[string]any
 	for _, job := range failedJobs {
-		jobResult, resp, err := getJobLogData(ctx, client, owner, repo, job.GetID(), job.GetName(), returnContent, tailLines)
+		jobResult, resp, err := getJobLogData(ctx, client, owner, repo, job.GetID(), job.GetName(), tailLines)
 		if err != nil {
 			// Continue with other jobs even if one fails
 			jobResult = map[string]any{
@@ -699,12 +699,11 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 	}
 
 	result := map[string]any{
-		"message":       fmt.Sprintf("Retrieved logs for %d failed jobs", len(failedJobs)),
-		"run_id":        runID,
-		"total_jobs":    len(jobs.Jobs),
-		"failed_jobs":   len(failedJobs),
-		"logs":          logResults,
-		"return_format": map[string]bool{"content": returnContent, "urls": !returnContent},
+		"message":     fmt.Sprintf("Retrieved logs for %d failed jobs", len(failedJobs)),
+		"run_id":      runID,
+		"total_jobs":  len(jobs.Jobs),
+		"failed_jobs": len(failedJobs),
+		"logs":        logResults,
 	}
 
 	r, err := json.Marshal(result)
@@ -716,8 +715,8 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 }
 
 // handleSingleJobLogs gets logs for a single job
-func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo string, jobID int64, returnContent bool, tailLines int) (*mcp.CallToolResult, error) {
-	jobResult, resp, err := getJobLogData(ctx, client, owner, repo, jobID, "", returnContent, tailLines)
+func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo string, jobID int64, _ bool, tailLines int) (*mcp.CallToolResult, error) {
+	jobResult, resp, err := getJobLogData(ctx, client, owner, repo, jobID, "", tailLines)
 	if err != nil {
 		return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to get job logs", resp, err), nil
 	}
@@ -730,8 +729,8 @@ func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo
 	return mcp.NewToolResultText(string(r)), nil
 }
 
-// getJobLogData retrieves log data for a single job, either as URL or content
-func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, returnContent bool, tailLines int) (map[string]any, *github.Response, error) {
+// getJobLogData retrieves log data for a single job, always fetching the content server-side for security
+func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, tailLines int) (map[string]any, *github.Response, error) {
 	// Get the download URL for the job logs
 	url, resp, err := client.Actions.GetWorkflowJobLogs(ctx, owner, repo, jobID, 1)
 	if err != nil {
@@ -746,25 +745,17 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 		result["job_name"] = jobName
 	}
 
-	if returnContent {
-		// Download and return the actual log content
-		content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
-		if err != nil {
-			// To keep the return value consistent wrap the response as a GitHub Response
-			ghRes := &github.Response{
-				Response: httpResp,
-			}
-			return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
+	content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
+	if err != nil {
+		// To keep the return value consistent wrap the response as a GitHub Response
+		ghRes := &github.Response{
+			Response: httpResp,
 		}
-		result["logs_content"] = content
-		result["message"] = "Job logs content retrieved successfully"
-		result["original_length"] = originalLength
-	} else {
-		// Return just the URL
-		result["logs_url"] = url.String()
-		result["message"] = "Job logs are available for download"
-		result["note"] = "The logs_url provides a download link for the individual job logs in plain text format. Use return_content=true to get the actual log content."
+		return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
 	}
+	result["logs_content"] = content
+	result["message"] = "Job logs content retrieved successfully"
+	result["original_length"] = originalLength
 
 	return result, resp, nil
 }
