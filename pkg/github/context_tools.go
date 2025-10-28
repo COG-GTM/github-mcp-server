@@ -26,7 +26,7 @@ func GetMe(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Too
 	handler := mcp.NewTypedToolHandler(func(ctx context.Context, _ mcp.CallToolRequest, _ args) (*mcp.CallToolResult, error) {
 		client, err := getClient(ctx)
 		if err != nil {
-			return mcp.NewToolResultErrorFromErr("failed to get GitHub client", err), nil
+			return mcp.NewToolResultErrorFromErr(errFailedToGetClient, err), nil
 		}
 
 		user, res, err := client.Users.Get(ctx, "")
