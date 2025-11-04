@@ -14,6 +14,22 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+func validateCodeScanningAlertParams(request mcp.CallToolRequest) (owner, repo string, alertNumber int, err error) {
+	owner, err = RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", 0, err
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", 0, err
+	}
+	alertNumber, err = RequiredInt(request, "alertNumber")
+	if err != nil {
+		return "", "", 0, err
+	}
+	return owner, repo, alertNumber, nil
+}
+
 func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_code_scanning_alert",
 			mcp.WithDescription(t("TOOL_GET_CODE_SCANNING_ALERT_DESCRIPTION", "Get details of a specific code scanning alert in a GitHub repository.")),
@@ -35,15 +51,7 @@ func GetCodeScanningAlert(getClient GetClientFn, t translations.TranslationHelpe
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			alertNumber, err := RequiredInt(request, "alertNumber")
+			owner, repo, alertNumber, err := validateCodeScanningAlertParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}

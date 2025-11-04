@@ -18,6 +18,13 @@ var version = "version"
 var commit = "commit"
 var date = "date"
 
+const (
+	flagReadOnly             = "read-only"
+	flagExportTranslations   = "export-translations"
+	flagEnableCommandLogging = "enable-command-logging"
+	flagLogFile              = "log-file"
+)
+
 var (
 	rootCmd = &cobra.Command{
 		Use:     "server",
@@ -51,10 +58,10 @@ var (
 				Token:                token,
 				EnabledToolsets:      enabledToolsets,
 				DynamicToolsets:      viper.GetBool("dynamic_toolsets"),
-				ReadOnly:             viper.GetBool("read-only"),
-				ExportTranslations:   viper.GetBool("export-translations"),
-				EnableCommandLogging: viper.GetBool("enable-command-logging"),
-				LogFilePath:          viper.GetString("log-file"),
+				ReadOnly:             viper.GetBool(flagReadOnly),
+				ExportTranslations:   viper.GetBool(flagExportTranslations),
+				EnableCommandLogging: viper.GetBool(flagEnableCommandLogging),
+				LogFilePath:          viper.GetString(flagLogFile),
 			}
 			return ghmcp.RunStdioServer(stdioServerConfig)
 		},
@@ -70,19 +77,19 @@ func init() {
 	// Add global flags that will be shared by all commands
 	rootCmd.PersistentFlags().StringSlice("toolsets", github.DefaultTools, "An optional comma separated list of groups of tools to allow, defaults to enabling all")
 	rootCmd.PersistentFlags().Bool("dynamic-toolsets", false, "Enable dynamic toolsets")
-	rootCmd.PersistentFlags().Bool("read-only", false, "Restrict the server to read-only operations")
-	rootCmd.PersistentFlags().String("log-file", "", "Path to log file")
-	rootCmd.PersistentFlags().Bool("enable-command-logging", false, "When enabled, the server will log all command requests and responses to the log file")
-	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
+	rootCmd.PersistentFlags().Bool(flagReadOnly, false, "Restrict the server to read-only operations")
+	rootCmd.PersistentFlags().String(flagLogFile, "", "Path to log file")
+	rootCmd.PersistentFlags().Bool(flagEnableCommandLogging, false, "When enabled, the server will log all command requests and responses to the log file")
+	rootCmd.PersistentFlags().Bool(flagExportTranslations, false, "Save translations to a JSON file")
 	rootCmd.PersistentFlags().String("gh-host", "", "Specify the GitHub hostname (for GitHub Enterprise etc.)")
 
 	// Bind flag to viper
 	_ = viper.BindPFlag("toolsets", rootCmd.PersistentFlags().Lookup("toolsets"))
 	_ = viper.BindPFlag("dynamic_toolsets", rootCmd.PersistentFlags().Lookup("dynamic-toolsets"))
-	_ = viper.BindPFlag("read-only", rootCmd.PersistentFlags().Lookup("read-only"))
-	_ = viper.BindPFlag("log-file", rootCmd.PersistentFlags().Lookup("log-file"))
-	_ = viper.BindPFlag("enable-command-logging", rootCmd.PersistentFlags().Lookup("enable-command-logging"))
-	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
+	_ = viper.BindPFlag(flagReadOnly, rootCmd.PersistentFlags().Lookup(flagReadOnly))
+	_ = viper.BindPFlag(flagLogFile, rootCmd.PersistentFlags().Lookup(flagLogFile))
+	_ = viper.BindPFlag(flagEnableCommandLogging, rootCmd.PersistentFlags().Lookup(flagEnableCommandLogging))
+	_ = viper.BindPFlag(flagExportTranslations, rootCmd.PersistentFlags().Lookup(flagExportTranslations))
 	_ = viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("gh-host"))
 
 	// Add subcommands
