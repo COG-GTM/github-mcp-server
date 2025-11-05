@@ -13,6 +13,11 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	errMsgReadResponseBody = "failed to read response body: %w"
+	errMsgMarshalResponse  = "failed to marshal response: %w"
+)
+
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("search_repositories",
@@ -61,14 +66,14 @@ func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperF
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(errMsgReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search repositories: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errMsgMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -141,14 +146,14 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			if resp.StatusCode != 200 {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(errMsgReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to search code: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errMsgMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -215,7 +220,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 		if resp.StatusCode != 200 {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
+				return nil, fmt.Errorf(errMsgReadResponseBody, err)
 			}
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
@@ -251,7 +256,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 
 		r, err := json.Marshal(minimalResp)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal response: %w", err)
+			return nil, fmt.Errorf(errMsgMarshalResponse, err)
 		}
 		return mcp.NewToolResultText(string(r)), nil
 	}
