@@ -1044,12 +1044,7 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 			}
 			runID := int64(runIDInt)
 
-			// Get optional pagination parameters
-			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			page, err := OptionalIntParam(request, "page")
+			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -1061,8 +1056,8 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 
 			// Set up list options
 			opts := &github.ListOptions{
-				PerPage: perPage,
-				Page:    page,
+				PerPage: pagination.perPage,
+				Page:    pagination.page,
 			}
 
 			artifacts, resp, err := client.Actions.ListWorkflowRunArtifacts(ctx, owner, repo, runID, opts)
