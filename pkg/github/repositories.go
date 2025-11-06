@@ -28,11 +28,11 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("sha",
 				mcp.Required(),
@@ -104,11 +104,11 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("sha",
 				mcp.Description("The commit SHA, branch name, or tag name to list commits from. If not specified, defaults to the repository's default branch."),
@@ -194,11 +194,11 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			WithPagination(),
 		),
@@ -265,11 +265,11 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -378,7 +378,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 			}),
 			mcp.WithString("name",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("description",
 				mcp.Description("Repository description"),
@@ -456,11 +456,11 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -498,23 +498,9 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			rawOpts := &raw.ContentOpts{}
 
 			if strings.HasPrefix(ref, "refs/pull/") {
-				prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
-				if len(prNumber) > 0 {
-					// fetch the PR from the API to get the latest commit and use SHA
-					githubClient, err := getClient(ctx)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-					}
-					prNum, err := strconv.Atoi(prNumber)
-					if err != nil {
-						return nil, fmt.Errorf("invalid pull request number: %w", err)
-					}
-					pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get pull request: %w", err)
-					}
-					sha = pr.GetHead().GetSHA()
-					ref = ""
+				ref, sha, err = handlePullRequestRef(ctx, getClient, owner, repo, ref)
+				if err != nil {
+					return nil, err
 				}
 			}
 
@@ -544,23 +530,9 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					}
 					contentType := resp.Header.Get("Content-Type")
 
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
+					resourceURI, err := createResourceURI(owner, repo, sha, ref, path)
+					if err != nil {
+						return nil, err
 					}
 
 					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
@@ -624,11 +596,11 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("organization",
 				mcp.Description("Organization to fork to"),
@@ -705,11 +677,11 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner (username or organization)"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("path",
 				mcp.Required(),
@@ -865,6 +837,53 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 		}
 }
 
+func createResourceURI(owner, repo, sha, ref, path string) (string, error) {
+	var resourceURI string
+	var err error
+
+	switch {
+	case sha != "":
+		resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+	case ref != "":
+		resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
+	default:
+		resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create resource URI: %w", err)
+	}
+	return resourceURI, nil
+}
+
+func handlePullRequestRef(ctx context.Context, getClient GetClientFn, owner, repo, ref string) (string, string, error) {
+	if !strings.HasPrefix(ref, "refs/pull/") {
+		return ref, "", nil
+	}
+
+	prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
+	if len(prNumber) == 0 {
+		return ref, "", nil
+	}
+
+	githubClient, err := getClient(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get GitHub client: %w", err)
+	}
+
+	prNum, err := strconv.Atoi(prNumber)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid pull request number: %w", err)
+	}
+
+	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get pull request: %w", err)
+	}
+
+	return "", pr.GetHead().GetSHA(), nil
+}
+
 // CreateBranch creates a tool to create a new branch.
 func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("create_branch",
@@ -875,11 +894,11 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("branch",
 				mcp.Required(),
@@ -976,11 +995,11 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("branch",
 				mcp.Required(),
@@ -1148,11 +1167,11 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			WithPagination(),
 		),
@@ -1217,11 +1236,11 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(ParamDescRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(ParamDescRepositoryName),
 			),
 			mcp.WithString("tag",
 				mcp.Required(),
