@@ -371,48 +371,9 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			opts := &github.IssueListByRepoOptions{}
-
-			// Set optional parameters if provided
-			opts.State, err = OptionalParam[string](request, "state")
+			opts, err := parseListIssuesOptions(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Get labels
-			opts.Labels, err = OptionalStringArrayParam(request, "labels")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Sort, err = OptionalParam[string](request, "sort")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Direction, err = OptionalParam[string](request, "direction")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			since, err := OptionalParam[string](request, "since")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if since != "" {
-				timestamp, err := parseISOTimestamp(since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", err.Error())), nil
-				}
-				opts.Since = timestamp
-			}
-
-			if page, ok := request.GetArguments()["page"].(float64); ok {
-				opts.ListOptions.Page = int(page)
-			}
-
-			if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
-				opts.ListOptions.PerPage = int(perPage)
 			}
 
 			client, err := getClient(ctx)
@@ -863,6 +824,58 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 type ReplaceActorsForAssignableInput struct {
 	AssignableID githubv4.ID   `json:"assignableId"`
 	ActorIDs     []githubv4.ID `json:"actorIds"`
+}
+
+func parseListIssuesOptions(request mcp.CallToolRequest) (*github.IssueListByRepoOptions, error) {
+	opts := &github.IssueListByRepoOptions{}
+
+	// Set optional parameters if provided
+	state, err := OptionalParam[string](request, "state")
+	if err != nil {
+		return nil, err
+	}
+	opts.State = state
+
+	// Get labels
+	labels, err := OptionalStringArrayParam(request, "labels")
+	if err != nil {
+		return nil, err
+	}
+	opts.Labels = labels
+
+	sort, err := OptionalParam[string](request, "sort")
+	if err != nil {
+		return nil, err
+	}
+	opts.Sort = sort
+
+	direction, err := OptionalParam[string](request, "direction")
+	if err != nil {
+		return nil, err
+	}
+	opts.Direction = direction
+
+	since, err := OptionalParam[string](request, "since")
+	if err != nil {
+		return nil, err
+	}
+	if since != "" {
+		timestamp, err := parseISOTimestamp(since)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list issues: %s", err.Error())
+		}
+		opts.Since = timestamp
+	}
+
+	if page, ok := request.GetArguments()["page"].(float64); ok {
+		opts.ListOptions.Page = int(page)
+	}
+
+	if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
+		opts.ListOptions.PerPage = int(perPage)
+	}
+
+	return opts, nil
 }
 
 // parseISOTimestamp parses an ISO 8601 timestamp string into a time.Time object.
