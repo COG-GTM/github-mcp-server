@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,24 @@ const (
 	DescriptionRepositoryOwner = "Repository owner"
 	DescriptionRepositoryName  = "Repository name"
 )
+
+func sanitizeURL(rawURL string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+
+	query := parsedURL.Query()
+	for key := range query {
+		lowerKey := strings.ToLower(key)
+		if strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "auth") {
+			query.Del(key)
+		}
+	}
+
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
 
 // ListWorkflows creates a tool to list workflows in a repository
 func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -443,7 +462,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 
 			// Create response with the logs URL and information
 			result := map[string]any{
-				"logs_url":         url.String(),
+				"logs_url":         sanitizeURL(url.String()),
 				"message":          "Workflow run logs are available for download",
 				"note":             "The logs_url provides a download link for the complete workflow run logs as a ZIP archive. You can download this archive to extract and examine individual job logs.",
 				"warning":          "This downloads ALL logs as a ZIP file which can be large and expensive. For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id instead.",
@@ -761,7 +780,7 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 		result["original_length"] = originalLength
 	} else {
 		// Return just the URL
-		result["logs_url"] = url.String()
+		result["logs_url"] = sanitizeURL(url.String())
 		result["message"] = "Job logs are available for download"
 		result["note"] = "The logs_url provides a download link for the individual job logs in plain text format. Use return_content=true to get the actual log content."
 	}
@@ -771,9 +790,14 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 
 // downloadLogContent downloads the actual log content from a GitHub logs URL
 func downloadLogContent(logURL string, tailLines int) (string, int, *http.Response, error) {
-	httpResp, err := http.Get(logURL) //nolint:gosec // URLs are provided by GitHub API and are safe
+	req, err := http.NewRequest(http.MethodGet, logURL, nil)
 	if err != nil {
-		return "", 0, httpResp, fmt.Errorf("failed to download logs: %w", err)
+		return "", 0, nil, fmt.Errorf("failed to create request for logs")
+	}
+
+	httpResp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", 0, httpResp, fmt.Errorf("failed to download logs from GitHub")
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
