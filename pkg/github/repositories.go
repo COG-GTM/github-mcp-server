@@ -19,6 +19,17 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+func validateResponseStatus(resp *github.Response, errorMsg string) (*mcp.CallToolResult, error) {
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errorMsg, string(body))), nil
+	}
+	return nil, nil
+}
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
@@ -167,12 +178,8 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
+			if result, err := validateResponseStatus(resp, "failed to list commits"); result != nil || err != nil {
+				return result, err
 			}
 
 			r, err := json.Marshal(commits)
