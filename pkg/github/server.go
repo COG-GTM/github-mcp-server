@@ -8,6 +8,8 @@ import (
 	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+
+	gherrors "github.com/github/github-mcp-server/pkg/errors"
 )
 
 // NewServer creates a new GitHub MCP server with the specified GH client and logger.
@@ -70,7 +72,7 @@ func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
 
 	// Check if the parameter is present in the request
 	if _, ok := r.GetArguments()[p]; !ok {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
+		return zero, fmt.Errorf(gherrors.ErrMissingRequiredParameter, p)
 	}
 
 	// Check if the parameter is of the expected type
@@ -80,7 +82,7 @@ func RequiredParam[T comparable](r mcp.CallToolRequest, p string) (T, error) {
 	}
 
 	if val == zero {
-		return zero, fmt.Errorf("missing required parameter: %s", p)
+		return zero, fmt.Errorf(gherrors.ErrMissingRequiredParameter, p)
 	}
 
 	return val, nil
