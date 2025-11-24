@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -20,6 +21,24 @@ const (
 	DescriptionRepositoryOwner = "Repository owner"
 	DescriptionRepositoryName  = "Repository name"
 )
+
+// sanitizeURLForResponse removes query parameters from URLs that may contain
+// authentication tokens before exposing them in MCP responses.
+// This prevents token leakage through URLs returned to clients.
+func sanitizeURLForResponse(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		// If we can't parse the URL, return a safe placeholder
+		return "[URL redacted due to parsing error]"
+	}
+
+	// Remove all query parameters as they may contain tokens
+	// GitHub log download URLs often include authentication tokens as query params
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+
+	return parsed.String()
+}
 
 // ListWorkflows creates a tool to list workflows in a repository
 func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -441,9 +460,10 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			// Create response with the logs URL and information
+			// Create response with the sanitized logs URL and information
+			// Sanitize URL to remove query parameters that may contain authentication tokens
 			result := map[string]any{
-				"logs_url":         url.String(),
+				"logs_url":         sanitizeURLForResponse(url.String()),
 				"message":          "Workflow run logs are available for download",
 				"note":             "The logs_url provides a download link for the complete workflow run logs as a ZIP archive. You can download this archive to extract and examine individual job logs.",
 				"warning":          "This downloads ALL logs as a ZIP file which can be large and expensive. For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id instead.",
@@ -760,8 +780,8 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 		result["message"] = "Job logs content retrieved successfully"
 		result["original_length"] = originalLength
 	} else {
-		// Return just the URL
-		result["logs_url"] = url.String()
+		// Return just the sanitized URL to prevent token leakage
+		result["logs_url"] = sanitizeURLForResponse(url.String())
 		result["message"] = "Job logs are available for download"
 		result["note"] = "The logs_url provides a download link for the individual job logs in plain text format. Use return_content=true to get the actual log content."
 	}
@@ -769,16 +789,20 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 	return result, resp, nil
 }
 
-// downloadLogContent downloads the actual log content from a GitHub logs URL
+// downloadLogContent downloads the actual log content from a GitHub logs URL.
+// Note: Error messages are sanitized to prevent token leakage from URLs that may
+// contain authentication tokens as query parameters.
 func downloadLogContent(logURL string, tailLines int) (string, int, *http.Response, error) {
 	httpResp, err := http.Get(logURL) //nolint:gosec // URLs are provided by GitHub API and are safe
 	if err != nil {
-		return "", 0, httpResp, fmt.Errorf("failed to download logs: %w", err)
+		// Sanitize URL in error message to prevent token leakage
+		return "", 0, httpResp, fmt.Errorf("failed to download logs from %s: connection error", sanitizeURLForResponse(logURL))
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
-		return "", 0, httpResp, fmt.Errorf("failed to download logs: HTTP %d", httpResp.StatusCode)
+		// Sanitize URL in error message to prevent token leakage
+		return "", 0, httpResp, fmt.Errorf("failed to download logs from %s: HTTP %d", sanitizeURLForResponse(logURL), httpResp.StatusCode)
 	}
 
 	content, err := io.ReadAll(httpResp.Body)
