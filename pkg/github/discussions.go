@@ -13,6 +13,29 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+const (
+	descriptionRepositoryOwner = "Repository owner"
+	descriptionRepositoryName  = "Repository name"
+)
+
+// validatePaginationParams validates pagination parameters for discussion category queries.
+// It returns an error message if the parameters are invalid, or an empty string if valid.
+func validatePaginationParams(first, last int32, after, before string) string {
+	if first != 0 && last != 0 {
+		return "only one of 'first' or 'last' may be specified"
+	}
+	if after != "" && before != "" {
+		return "only one of 'after' or 'before' may be specified"
+	}
+	if after != "" && last != 0 {
+		return "'after' cannot be used with 'last'. Did you mean to use 'before' instead?"
+	}
+	if before != "" && first != 0 {
+		return "'before' cannot be used with 'first'. Did you mean to use 'after' instead?"
+	}
+	return ""
+}
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -22,11 +45,11 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descriptionRepositoryName),
 			),
 			mcp.WithString("category",
 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
@@ -164,11 +187,11 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descriptionRepositoryName),
 			),
 			mcp.WithNumber("discussionNumber",
 				mcp.Required(),
@@ -241,8 +264,8 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 				Title:        t("TOOL_GET_DISCUSSION_COMMENTS_USER_TITLE", "Get discussion comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner", mcp.Required(), mcp.Description("Repository owner")),
-			mcp.WithString("repo", mcp.Required(), mcp.Description("Repository name")),
+			mcp.WithString("owner", mcp.Required(), mcp.Description(descriptionRepositoryOwner)),
+			mcp.WithString("repo", mcp.Required(), mcp.Description(descriptionRepositoryName)),
 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -303,11 +326,11 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descriptionRepositoryOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descriptionRepositoryName),
 			),
 			mcp.WithNumber("first",
 				mcp.Description("Number of categories to return per page (min 1, max 100)"),
@@ -341,17 +364,8 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 
 			// Validate pagination parameters
-			if params.First != 0 && params.Last != 0 {
-				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
-			}
-			if params.After != "" && params.Before != "" {
-				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
-			}
-			if params.After != "" && params.Last != 0 {
-				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
-			}
-			if params.Before != "" && params.First != 0 {
-				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
+			if errMsg := validatePaginationParams(params.First, params.Last, params.After, params.Before); errMsg != "" {
+				return mcp.NewToolResultError(errMsg), nil
 			}
 
 			client, err := getGQLClient(ctx)
