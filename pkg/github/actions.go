@@ -394,7 +394,9 @@ func GetWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFunc)
 }
 
 // GetWorkflowRunLogs creates a tool to download logs for a specific workflow run
-func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
+// Note: For security reasons, this function no longer exposes raw download URLs.
+// The getClient parameter is kept for API compatibility but is intentionally unused.
+func GetWorkflowRunLogs(_ GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_workflow_run_logs",
 			mcp.WithDescription(t("TOOL_GET_WORKFLOW_RUN_LOGS_DESCRIPTION", "Download logs for a specific workflow run (EXPENSIVE: downloads ALL logs as ZIP. Consider using get_job_logs with failed_only=true for debugging failed jobs)")),
 			mcp.WithToolAnnotation(mcp.ToolAnnotation{
@@ -414,7 +416,7 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 				mcp.Description("The unique identifier of the workflow run"),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		func(_ context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			owner, err := RequiredParam[string](request, "owner")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -429,25 +431,15 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 			}
 			runID := int64(runIDInt)
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-
-			// Get the download URL for the logs
-			url, resp, err := client.Actions.GetWorkflowRunLogs(ctx, owner, repo, runID, 1)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get workflow run logs: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			// Create response with the logs URL and information
+			// For security reasons, we no longer expose raw download URLs which may contain
+			// embedded authentication tokens. Instead, redirect users to use get_job_logs
+			// which fetches content directly.
 			result := map[string]any{
-				"logs_url":         url.String(),
-				"message":          "Workflow run logs are available for download",
-				"note":             "The logs_url provides a download link for the complete workflow run logs as a ZIP archive. You can download this archive to extract and examine individual job logs.",
-				"warning":          "This downloads ALL logs as a ZIP file which can be large and expensive. For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id instead.",
-				"optimization_tip": "Use: get_job_logs with parameters {run_id: " + fmt.Sprintf("%d", runID) + ", failed_only: true} for more efficient failed job debugging",
+				"message":        "For security reasons, workflow run log URLs are no longer exposed directly",
+				"run_id":         runID,
+				"recommendation": "Use get_job_logs with failed_only=true for efficient debugging of failed jobs",
+				"usage_example":  fmt.Sprintf("get_job_logs with parameters {owner: \"%s\", repo: \"%s\", run_id: %d, failed_only: true}", owner, repo, runID),
+				"security_note":  "Direct URL exposure has been disabled to prevent leakage of signed URLs with embedded authentication tokens",
 			}
 
 			r, err := json.Marshal(result)
@@ -699,12 +691,11 @@ func handleFailedJobLogs(ctx context.Context, client *github.Client, owner, repo
 	}
 
 	result := map[string]any{
-		"message":       fmt.Sprintf("Retrieved logs for %d failed jobs", len(failedJobs)),
-		"run_id":        runID,
-		"total_jobs":    len(jobs.Jobs),
-		"failed_jobs":   len(failedJobs),
-		"logs":          logResults,
-		"return_format": map[string]bool{"content": returnContent, "urls": !returnContent},
+		"message":     fmt.Sprintf("Retrieved logs for %d failed jobs", len(failedJobs)),
+		"run_id":      runID,
+		"total_jobs":  len(jobs.Jobs),
+		"failed_jobs": len(failedJobs),
+		"logs":        logResults,
 	}
 
 	r, err := json.Marshal(result)
@@ -730,8 +721,9 @@ func handleSingleJobLogs(ctx context.Context, client *github.Client, owner, repo
 	return mcp.NewToolResultText(string(r)), nil
 }
 
-// getJobLogData retrieves log data for a single job, either as URL or content
-func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, returnContent bool, tailLines int) (map[string]any, *github.Response, error) {
+// getJobLogData retrieves log data for a single job by always fetching content directly.
+// This function never returns raw URLs to prevent exposure of signed URLs with embedded authentication tokens.
+func getJobLogData(ctx context.Context, client *github.Client, owner, repo string, jobID int64, jobName string, _ bool, tailLines int) (map[string]any, *github.Response, error) {
 	// Get the download URL for the job logs
 	url, resp, err := client.Actions.GetWorkflowJobLogs(ctx, owner, repo, jobID, 1)
 	if err != nil {
@@ -746,25 +738,19 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 		result["job_name"] = jobName
 	}
 
-	if returnContent {
-		// Download and return the actual log content
-		content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
-		if err != nil {
-			// To keep the return value consistent wrap the response as a GitHub Response
-			ghRes := &github.Response{
-				Response: httpResp,
-			}
-			return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
+	// Always download and return the actual log content to prevent URL exposure
+	// This ensures signed URLs with embedded authentication tokens are never exposed to clients
+	content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
+	if err != nil {
+		// To keep the return value consistent wrap the response as a GitHub Response
+		ghRes := &github.Response{
+			Response: httpResp,
 		}
-		result["logs_content"] = content
-		result["message"] = "Job logs content retrieved successfully"
-		result["original_length"] = originalLength
-	} else {
-		// Return just the URL
-		result["logs_url"] = url.String()
-		result["message"] = "Job logs are available for download"
-		result["note"] = "The logs_url provides a download link for the individual job logs in plain text format. Use return_content=true to get the actual log content."
+		return nil, ghRes, fmt.Errorf("failed to download log content for job %d: %w", jobID, err)
 	}
+	result["logs_content"] = content
+	result["message"] = "Job logs content retrieved directly for security"
+	result["original_length"] = originalLength
 
 	return result, resp, nil
 }
