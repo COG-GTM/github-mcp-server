@@ -7,37 +7,30 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	// Token patterns for sanitization
-	// GitHub Personal Access Tokens (classic and fine-grained)
-	ghpTokenPattern = regexp.MustCompile(`ghp_[a-zA-Z0-9]{36}`)
-	ghoTokenPattern = regexp.MustCompile(`gho_[a-zA-Z0-9]{36}`)
-	ghuTokenPattern = regexp.MustCompile(`ghu_[a-zA-Z0-9]{36}`)
-	ghsTokenPattern = regexp.MustCompile(`ghs_[a-zA-Z0-9]{36}`)
-	ghrTokenPattern = regexp.MustCompile(`ghr_[a-zA-Z0-9]{36}`)
-	// Bearer tokens in various formats
-	bearerTokenPattern = regexp.MustCompile(`Bearer\s+[a-zA-Z0-9_\-\.]+`)
-	// Authorization header values
-	authHeaderPattern = regexp.MustCompile(`(?i)(authorization["\s:]+)(Bearer\s+)?[a-zA-Z0-9_\-\.]+`)
-)
+// tokenPattern defines a pattern for detecting and redacting sensitive tokens
+type tokenPattern struct {
+	pattern     *regexp.Regexp
+	replacement string
+}
 
-// sanitizeLogData redacts sensitive tokens from log data to prevent credential leakage
+// sensitivePatterns contains all patterns for detecting sensitive tokens in log data.
+// Using a table-driven approach for maintainability and extensibility.
+var sensitivePatterns = []tokenPattern{
+	// GitHub Personal Access Tokens (classic and fine-grained): ghp_, gho_, ghu_, ghs_, ghr_
+	{regexp.MustCompile(`gh[pousr]_[a-zA-Z0-9]{36}`), "[REDACTED]"},
+	// Bearer tokens in various formats
+	{regexp.MustCompile(`Bearer\s+[a-zA-Z0-9_\-\.]+`), "Bearer [REDACTED]"},
+	// Authorization header values (preserves header structure)
+	{regexp.MustCompile(`(?i)(authorization["\s:]+)(Bearer\s+)?[a-zA-Z0-9_\-\.]+`), "${1}[REDACTED]"},
+}
+
+// sanitizeLogData redacts sensitive tokens from log data to prevent credential leakage.
+// It applies all patterns defined in sensitivePatterns to detect and redact tokens.
 func sanitizeLogData(data []byte) []byte {
 	sanitized := string(data)
-
-	// Redact GitHub tokens
-	sanitized = ghpTokenPattern.ReplaceAllString(sanitized, "[REDACTED]")
-	sanitized = ghoTokenPattern.ReplaceAllString(sanitized, "[REDACTED]")
-	sanitized = ghuTokenPattern.ReplaceAllString(sanitized, "[REDACTED]")
-	sanitized = ghsTokenPattern.ReplaceAllString(sanitized, "[REDACTED]")
-	sanitized = ghrTokenPattern.ReplaceAllString(sanitized, "[REDACTED]")
-
-	// Redact Bearer tokens
-	sanitized = bearerTokenPattern.ReplaceAllString(sanitized, "Bearer [REDACTED]")
-
-	// Redact Authorization header values while preserving structure
-	sanitized = authHeaderPattern.ReplaceAllString(sanitized, "${1}[REDACTED]")
-
+	for _, p := range sensitivePatterns {
+		sanitized = p.pattern.ReplaceAllString(sanitized, p.replacement)
+	}
 	return []byte(sanitized)
 }
 
