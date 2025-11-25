@@ -606,7 +606,9 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}
 			// Note: return_content parameter is kept for API compatibility but is no longer used
 			// Content is always fetched directly for security reasons
-			_, _ = OptionalParam[bool](request, "return_content")
+			if _, err := OptionalParam[bool](request, "return_content"); err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
 			tailLines, err := OptionalIntParam(request, "tail_lines")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
