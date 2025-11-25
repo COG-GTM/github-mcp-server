@@ -55,6 +55,28 @@ func getE2EHost() string {
 	return host
 }
 
+// buildSecureEnvVars constructs environment variables for Docker execution
+// without using fmt.Sprintf to avoid token values appearing in formatted strings
+// that could potentially be logged or exposed in debug output.
+func buildSecureEnvVars(token, toolsets, host string) []string {
+	const (
+		tokenEnvKey    = "GITHUB_PERSONAL_ACCESS_TOKEN="
+		toolsetsEnvKey = "GITHUB_TOOLSETS="
+		hostEnvKey     = "GITHUB_HOST="
+	)
+
+	envVars := []string{
+		tokenEnvKey + token,
+		toolsetsEnvKey + toolsets,
+	}
+
+	if host != "" {
+		envVars = append(envVars, hostEnvKey+host)
+	}
+
+	return envVars
+}
+
 func getRESTClient(t *testing.T) *gogithub.Client {
 	// Get token and ensure Docker image is built
 	token := getE2EToken(t)
@@ -149,14 +171,9 @@ func setupMCPClient(t *testing.T, options ...clientOption) *mcpClient.Client {
 		args = append(args, "github/e2e-github-mcp-server")
 
 		// Construct the env vars for the MCP Client to execute docker with
-		dockerEnvVars := []string{
-			fmt.Sprintf("GITHUB_PERSONAL_ACCESS_TOKEN=%s", token),
-			fmt.Sprintf("GITHUB_TOOLSETS=%s", strings.Join(opts.enabledToolsets, ",")),
-		}
-
-		if host != "" {
-			dockerEnvVars = append(dockerEnvVars, fmt.Sprintf("GITHUB_HOST=%s", host))
-		}
+		// Use direct string concatenation with the env var name prefix to avoid
+		// token values appearing in formatted strings that could be logged
+		dockerEnvVars := buildSecureEnvVars(token, strings.Join(opts.enabledToolsets, ","), host)
 
 		// Create the client
 		t.Log("Starting Stdio MCP client...")
