@@ -13,6 +13,14 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+func discussionOwnerOption() mcp.ToolOption {
+	return mcp.WithString("owner", mcp.Required(), mcp.Description(DescriptionRepositoryOwner))
+}
+
+func discussionRepoOption() mcp.ToolOption {
+	return mcp.WithString("repo", mcp.Required(), mcp.Description(DescriptionRepositoryName))
+}
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -20,14 +28,8 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				Title:        t("TOOL_LIST_DISCUSSIONS_USER_TITLE", "List discussions"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryName),
-			),
+			discussionOwnerOption(),
+			discussionRepoOption(),
 			mcp.WithString("category",
 				mcp.Description("Optional filter by discussion category ID. If provided, only discussions with this category are listed."),
 			),
@@ -162,14 +164,8 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 				Title:        t("TOOL_GET_DISCUSSION_USER_TITLE", "Get discussion"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryName),
-			),
+			discussionOwnerOption(),
+			discussionRepoOption(),
 			mcp.WithNumber("discussionNumber",
 				mcp.Required(),
 				mcp.Description("Discussion Number"),
@@ -241,8 +237,8 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 				Title:        t("TOOL_GET_DISCUSSION_COMMENTS_USER_TITLE", "Get discussion comments"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner", mcp.Required(), mcp.Description(DescriptionRepositoryOwner)),
-			mcp.WithString("repo", mcp.Required(), mcp.Description(DescriptionRepositoryName)),
+			discussionOwnerOption(),
+			discussionRepoOption(),
 			mcp.WithNumber("discussionNumber", mcp.Required(), mcp.Description("Discussion Number")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -301,14 +297,8 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 				Title:        t("TOOL_LIST_DISCUSSION_CATEGORIES_USER_TITLE", "List discussion categories"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("owner",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryOwner),
-			),
-			mcp.WithString("repo",
-				mcp.Required(),
-				mcp.Description(DescriptionRepositoryName),
-			),
+			discussionOwnerOption(),
+			discussionRepoOption(),
 			mcp.WithNumber("first",
 				mcp.Description("Number of categories to return per page (min 1, max 100)"),
 				mcp.Min(1),
