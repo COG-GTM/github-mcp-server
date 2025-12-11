@@ -17,6 +17,10 @@ import (
 	"github.com/github/github-mcp-server/pkg/translations"
 )
 
+const (
+	errFailedToGetPullRequest = "failed to get pull request"
+)
+
 // GetPullRequest creates a tool to get details of a specific pull request.
 func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request",
@@ -59,7 +63,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					errFailedToGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -71,7 +75,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errFailedToGetPullRequest, string(body))), nil
 			}
 
 			r, err := json.Marshal(pr)
@@ -695,7 +699,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					errFailedToGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -707,7 +711,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 				if err != nil {
 					return nil, fmt.Errorf("failed to read response body: %w", err)
 				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request: %s", string(body))), nil
+				return mcp.NewToolResultError(fmt.Sprintf("%s: %s", errFailedToGetPullRequest, string(body))), nil
 			}
 
 			// Get combined status for the head SHA
@@ -1025,7 +1029,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					errFailedToGetPullRequest,
 					err,
 				), nil
 			}
@@ -1119,7 +1123,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					errFailedToGetPullRequest,
 					err,
 				), nil
 			}
