@@ -18,93 +18,6 @@ const (
 	categoryLabelFormat     = "category:%s"
 )
 
-// discussionNode represents a discussion node from the GraphQL query
-type discussionNode struct {
-	Number    githubv4.Int
-	Title     githubv4.String
-	CreatedAt githubv4.DateTime
-	Category  struct {
-		Name githubv4.String
-	} `graphql:"category"`
-	URL githubv4.String `graphql:"url"`
-}
-
-// mapDiscussionNodeToIssue converts a discussionNode to a github.Issue
-func mapDiscussionNodeToIssue(n discussionNode) *github.Issue {
-	return &github.Issue{
-		Number:    github.Ptr(int(n.Number)),
-		Title:     github.Ptr(string(n.Title)),
-		HTMLURL:   github.Ptr(string(n.URL)),
-		CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-		Labels: []*github.Label{
-			{
-				Name: github.Ptr(fmt.Sprintf(categoryLabelFormat, string(n.Category.Name))),
-			},
-		},
-	}
-}
-
-// validatePaginationParams validates pagination parameters and returns an error message if invalid
-func validatePaginationParams(first, last int32, after, before string) string {
-	if first != 0 && last != 0 {
-		return "only one of 'first' or 'last' may be specified"
-	}
-	if after != "" && before != "" {
-		return "only one of 'after' or 'before' may be specified"
-	}
-	if after != "" && last != 0 {
-		return "'after' cannot be used with 'last'. Did you mean to use 'before' instead?"
-	}
-	if before != "" && first != 0 {
-		return "'before' cannot be used with 'first'. Did you mean to use 'after' instead?"
-	}
-	return ""
-}
-
-// discussionsQuery is the GraphQL query struct for fetching discussions without category filter
-type discussionsQuery struct {
-	Repository struct {
-		Discussions struct {
-			Nodes []discussionNode
-		} `graphql:"discussions(first: 100)"`
-	} `graphql:"repository(owner: $owner, name: $repo)"`
-}
-
-// discussionsQueryWithCategory is the GraphQL query struct for fetching discussions with category filter
-type discussionsQueryWithCategory struct {
-	Repository struct {
-		Discussions struct {
-			Nodes []discussionNode
-		} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-	} `graphql:"repository(owner: $owner, name: $repo)"`
-}
-
-// fetchDiscussions fetches discussions from the repository, optionally filtered by category
-func fetchDiscussions(ctx context.Context, client *githubv4.Client, owner, repo, category string) ([]discussionNode, error) {
-	if category != "" {
-		var query discussionsQueryWithCategory
-		vars := map[string]interface{}{
-			"owner":      githubv4.String(owner),
-			"repo":       githubv4.String(repo),
-			"categoryId": githubv4.ID(category),
-		}
-		if err := client.Query(ctx, &query, vars); err != nil {
-			return nil, err
-		}
-		return query.Repository.Discussions.Nodes, nil
-	}
-
-	var query discussionsQuery
-	vars := map[string]interface{}{
-		"owner": githubv4.String(owner),
-		"repo":  githubv4.String(repo),
-	}
-	if err := client.Query(ctx, &query, vars); err != nil {
-		return nil, err
-	}
-	return query.Repository.Discussions.Nodes, nil
-}
-
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -146,16 +59,96 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				return mcp.NewToolResultError(fmt.Sprintf(errFailedToGetGQLClient, err)), nil
 			}
 
-			// Fetch discussions using helper function
-			nodes, err := fetchDiscussions(ctx, client, owner, repo, category)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
+			// If category filter is specified, use it as the category ID for server-side filtering
+			var categoryID *githubv4.ID
+			if category != "" {
+				id := githubv4.ID(category)
+				categoryID = &id
 			}
 
-			// Map nodes to GitHub Issue objects
-			discussions := make([]*github.Issue, 0, len(nodes))
-			for _, n := range nodes {
-				discussions = append(discussions, mapDiscussionNodeToIssue(n))
+			// Now execute the discussions query
+			var discussions []*github.Issue
+			if categoryID != nil {
+				// Query with category filter (server-side filtering)
+				var query struct {
+					Repository struct {
+						Discussions struct {
+							Nodes []struct {
+								Number    githubv4.Int
+								Title     githubv4.String
+								CreatedAt githubv4.DateTime
+								Category  struct {
+									Name githubv4.String
+								} `graphql:"category"`
+								URL githubv4.String `graphql:"url"`
+							}
+						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+					} `graphql:"repository(owner: $owner, name: $repo)"`
+				}
+				vars := map[string]interface{}{
+					"owner":      githubv4.String(owner),
+					"repo":       githubv4.String(repo),
+					"categoryId": *categoryID,
+				}
+				if err := client.Query(ctx, &query, vars); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+
+				// Map nodes to GitHub Issue objects
+				for _, n := range query.Repository.Discussions.Nodes {
+					di := &github.Issue{
+						Number:    github.Ptr(int(n.Number)),
+						Title:     github.Ptr(string(n.Title)),
+						HTMLURL:   github.Ptr(string(n.URL)),
+						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+						Labels: []*github.Label{
+							{
+								Name: github.Ptr(fmt.Sprintf(categoryLabelFormat, string(n.Category.Name))),
+							},
+						},
+					}
+					discussions = append(discussions, di)
+				}
+			} else {
+				// Query without category filter
+				var query struct {
+					Repository struct {
+						Discussions struct {
+							Nodes []struct {
+								Number    githubv4.Int
+								Title     githubv4.String
+								CreatedAt githubv4.DateTime
+								Category  struct {
+									Name githubv4.String
+								} `graphql:"category"`
+								URL githubv4.String `graphql:"url"`
+							}
+						} `graphql:"discussions(first: 100)"`
+					} `graphql:"repository(owner: $owner, name: $repo)"`
+				}
+				vars := map[string]interface{}{
+					"owner": githubv4.String(owner),
+					"repo":  githubv4.String(repo),
+				}
+				if err := client.Query(ctx, &query, vars); err != nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+
+				// Map nodes to GitHub Issue objects
+				for _, n := range query.Repository.Discussions.Nodes {
+					di := &github.Issue{
+						Number:    github.Ptr(int(n.Number)),
+						Title:     github.Ptr(string(n.Title)),
+						HTMLURL:   github.Ptr(string(n.URL)),
+						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+						Labels: []*github.Label{
+							{
+								Name: github.Ptr(fmt.Sprintf(categoryLabelFormat, string(n.Category.Name))),
+							},
+						},
+					}
+					discussions = append(discussions, di)
+				}
 			}
 
 			// Marshal and return
@@ -353,8 +346,17 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 
 			// Validate pagination parameters
-			if errMsg := validatePaginationParams(params.First, params.Last, params.After, params.Before); errMsg != "" {
-				return mcp.NewToolResultError(errMsg), nil
+			if params.First != 0 && params.Last != 0 {
+				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
+			}
+			if params.After != "" && params.Before != "" {
+				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
+			}
+			if params.After != "" && params.Last != 0 {
+				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
+			}
+			if params.Before != "" && params.First != 0 {
+				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
 			}
 
 			client, err := getGQLClient(ctx)
