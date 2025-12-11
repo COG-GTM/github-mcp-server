@@ -61,17 +61,28 @@ func validatePaginationParams(first, last int32, after, before string) string {
 	return ""
 }
 
+// discussionsQuery is the GraphQL query struct for fetching discussions without category filter
+type discussionsQuery struct {
+	Repository struct {
+		Discussions struct {
+			Nodes []discussionNode
+		} `graphql:"discussions(first: 100)"`
+	} `graphql:"repository(owner: $owner, name: $repo)"`
+}
+
+// discussionsQueryWithCategory is the GraphQL query struct for fetching discussions with category filter
+type discussionsQueryWithCategory struct {
+	Repository struct {
+		Discussions struct {
+			Nodes []discussionNode
+		} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+	} `graphql:"repository(owner: $owner, name: $repo)"`
+}
+
 // fetchDiscussions fetches discussions from the repository, optionally filtered by category
 func fetchDiscussions(ctx context.Context, client *githubv4.Client, owner, repo, category string) ([]discussionNode, error) {
 	if category != "" {
-		// Query with category filter
-		var query struct {
-			Repository struct {
-				Discussions struct {
-					Nodes []discussionNode
-				} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-			} `graphql:"repository(owner: $owner, name: $repo)"`
-		}
+		var query discussionsQueryWithCategory
 		vars := map[string]interface{}{
 			"owner":      githubv4.String(owner),
 			"repo":       githubv4.String(repo),
@@ -83,14 +94,7 @@ func fetchDiscussions(ctx context.Context, client *githubv4.Client, owner, repo,
 		return query.Repository.Discussions.Nodes, nil
 	}
 
-	// Query without category filter
-	var query struct {
-		Repository struct {
-			Discussions struct {
-				Nodes []discussionNode
-			} `graphql:"discussions(first: 100)"`
-		} `graphql:"repository(owner: $owner, name: $repo)"`
-	}
+	var query discussionsQuery
 	vars := map[string]interface{}{
 		"owner": githubv4.String(owner),
 		"repo":  githubv4.String(repo),
