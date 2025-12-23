@@ -446,6 +446,36 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 		}
 }
 
+// buildResourceURI constructs a resource URI based on the provided owner, repo, path, sha, and ref.
+// This helper reduces cognitive complexity by centralizing URI construction logic.
+func buildResourceURI(owner, repo, path, sha, ref string) (string, error) {
+	switch {
+	case sha != "":
+		return url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+	case ref != "":
+		return url.JoinPath("repo://", owner, repo, ref, "contents", path)
+	default:
+		return url.JoinPath("repo://", owner, repo, "contents", path)
+	}
+}
+
+// createResourceContent creates an MCP resource content based on the content type.
+// Returns a TextResourceContents for text/application types, BlobResourceContents for binary.
+func createResourceContent(body []byte, contentType, resourceURI string) mcp.ResourceContents {
+	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
+		return mcp.TextResourceContents{
+			URI:      resourceURI,
+			Text:     string(body),
+			MIMEType: contentType,
+		}
+	}
+	return mcp.BlobResourceContents{
+		URI:      resourceURI,
+		Blob:     base64.StdEncoding.EncodeToString(body),
+		MIMEType: contentType,
+	}
+}
+
 // GetFileContents creates a tool to get the contents of a file or directory from a GitHub repository.
 func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_file_contents",
@@ -537,46 +567,22 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 				}()
 
 				if resp.StatusCode == http.StatusOK {
-					// If the raw content is found, return it directly
 					body, err := io.ReadAll(resp.Body)
 					if err != nil {
 						return mcp.NewToolResultError("failed to read response body"), nil
 					}
 					contentType := resp.Header.Get("Content-Type")
 
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
+					resourceURI, err := buildResourceURI(owner, repo, path, sha, ref)
+					if err != nil {
+						return nil, fmt.Errorf("failed to create resource URI: %w", err)
 					}
 
-					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-						return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-							URI:      resourceURI,
-							Text:     string(body),
-							MIMEType: contentType,
-						}), nil
+					resourceContent := createResourceContent(body, contentType, resourceURI)
+					if _, isText := resourceContent.(mcp.TextResourceContents); isText {
+						return mcp.NewToolResultResource("successfully downloaded text file", resourceContent), nil
 					}
-
-					return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-						URI:      resourceURI,
-						Blob:     base64.StdEncoding.EncodeToString(body),
-						MIMEType: contentType,
-					}), nil
-
+					return mcp.NewToolResultResource("successfully downloaded binary file", resourceContent), nil
 				}
 			}
 
