@@ -39,43 +39,50 @@ func discussionNodeToIssue(n discussionNode) *github.Issue {
 	}
 }
 
-// fetchDiscussionsWithCategory fetches discussions with a category filter
-func fetchDiscussionsWithCategory(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID githubv4.ID) ([]discussionNode, error) {
-	var query struct {
-		Repository struct {
-			Discussions struct {
-				Nodes []discussionNode
-			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-		} `graphql:"repository(owner: $owner, name: $repo)"`
-	}
-	vars := map[string]interface{}{
-		"owner":      githubv4.String(owner),
-		"repo":       githubv4.String(repo),
-		"categoryId": categoryID,
-	}
-	if err := client.Query(ctx, &query, vars); err != nil {
-		return nil, err
-	}
-	return query.Repository.Discussions.Nodes, nil
-}
+// fetchDiscussions fetches discussions from a repository, optionally filtered by category
+func fetchDiscussions(ctx context.Context, client *githubv4.Client, owner, repo, category string) ([]*github.Issue, error) {
+	var nodes []discussionNode
 
-// fetchDiscussionsWithoutCategory fetches discussions without a category filter
-func fetchDiscussionsWithoutCategory(ctx context.Context, client *githubv4.Client, owner, repo string) ([]discussionNode, error) {
-	var query struct {
-		Repository struct {
-			Discussions struct {
-				Nodes []discussionNode
-			} `graphql:"discussions(first: 100)"`
-		} `graphql:"repository(owner: $owner, name: $repo)"`
+	if category != "" {
+		var query struct {
+			Repository struct {
+				Discussions struct {
+					Nodes []discussionNode
+				} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+			} `graphql:"repository(owner: $owner, name: $repo)"`
+		}
+		vars := map[string]interface{}{
+			"owner":      githubv4.String(owner),
+			"repo":       githubv4.String(repo),
+			"categoryId": githubv4.ID(category),
+		}
+		if err := client.Query(ctx, &query, vars); err != nil {
+			return nil, err
+		}
+		nodes = query.Repository.Discussions.Nodes
+	} else {
+		var query struct {
+			Repository struct {
+				Discussions struct {
+					Nodes []discussionNode
+				} `graphql:"discussions(first: 100)"`
+			} `graphql:"repository(owner: $owner, name: $repo)"`
+		}
+		vars := map[string]interface{}{
+			"owner": githubv4.String(owner),
+			"repo":  githubv4.String(repo),
+		}
+		if err := client.Query(ctx, &query, vars); err != nil {
+			return nil, err
+		}
+		nodes = query.Repository.Discussions.Nodes
 	}
-	vars := map[string]interface{}{
-		"owner": githubv4.String(owner),
-		"repo":  githubv4.String(repo),
+
+	discussions := make([]*github.Issue, 0, len(nodes))
+	for _, n := range nodes {
+		discussions = append(discussions, discussionNodeToIssue(n))
 	}
-	if err := client.Query(ctx, &query, vars); err != nil {
-		return nil, err
-	}
-	return query.Repository.Discussions.Nodes, nil
+	return discussions, nil
 }
 
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -116,19 +123,9 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get GitHub GQL client: %v", err)), nil
 			}
 
-			var nodes []discussionNode
-			if category != "" {
-				nodes, err = fetchDiscussionsWithCategory(ctx, client, owner, repo, githubv4.ID(category))
-			} else {
-				nodes, err = fetchDiscussionsWithoutCategory(ctx, client, owner, repo)
-			}
+			discussions, err := fetchDiscussions(ctx, client, owner, repo, category)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			discussions := make([]*github.Issue, 0, len(nodes))
-			for _, n := range nodes {
-				discussions = append(discussions, discussionNodeToIssue(n))
 			}
 
 			out, err := json.Marshal(discussions)
