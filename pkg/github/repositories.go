@@ -19,6 +19,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	refsHeadsPrefix = "refs/heads/"
+)
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
@@ -752,7 +756,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}
 
 			// Get the reference for the branch
-			ref, resp, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+branch)
+			ref, resp, err := client.Git.GetRef(ctx, owner, repo, refsHeadsPrefix+branch)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get branch reference: %w", err)
 			}
@@ -931,7 +935,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 			}
 
 			// Get SHA of source branch
-			ref, resp, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+fromBranch)
+			ref, resp, err := client.Git.GetRef(ctx, owner, repo, refsHeadsPrefix+fromBranch)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to get reference",
@@ -943,7 +947,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			// Create new branch
 			newRef := &github.Reference{
-				Ref:    github.Ptr("refs/heads/" + branch),
+				Ref:    github.Ptr(refsHeadsPrefix + branch),
 				Object: &github.GitObject{SHA: ref.Object.SHA},
 			}
 
@@ -1041,7 +1045,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 			}
 
 			// Get the reference for the branch
-			ref, resp, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+branch)
+			ref, resp, err := client.Git.GetRef(ctx, owner, repo, refsHeadsPrefix+branch)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to get branch reference",
