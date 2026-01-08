@@ -174,30 +174,39 @@ func main() {
 		_, _ = fmt.Fprintf(os.Stderr, "Error getting pretty flag: %v\n", err)
 		os.Exit(1)
 	}
-	// Get server command
+
+	// Get server command and load tools
 	serverCmd, err := rootCmd.Flags().GetString("stdio-server-cmd")
 	if err == nil && serverCmd != "" {
-		// Fetch schema from server
-		jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
-		if err == nil {
-			response, err := executeServerCommand(serverCmd, jsonRequest)
-			if err == nil {
-				// Parse the schema response
-				var schemaResp SchemaResponse
-				if err := json.Unmarshal([]byte(response), &schemaResp); err == nil {
-					// Add all the generated commands as subcommands of tools
-					for _, tool := range schemaResp.Result.Tools {
-						addCommandFromTool(toolsCmd, &tool, prettyPrint)
-					}
-				}
-			}
-		}
+		loadToolsFromServer(serverCmd, prettyPrint)
 	}
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// loadToolsFromServer fetches the schema from the MCP server and registers tool commands
+func loadToolsFromServer(serverCmd string, prettyPrint bool) {
+	jsonRequest, err := buildJSONRPCRequest("tools/list", "", nil)
+	if err != nil {
+		return
+	}
+
+	response, err := executeServerCommand(serverCmd, jsonRequest)
+	if err != nil {
+		return
+	}
+
+	var schemaResp SchemaResponse
+	if err := json.Unmarshal([]byte(response), &schemaResp); err != nil {
+		return
+	}
+
+	for _, tool := range schemaResp.Result.Tools {
+		addCommandFromTool(toolsCmd, &tool, prettyPrint)
 	}
 }
 
