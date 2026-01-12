@@ -32,6 +32,29 @@ type discussionNode struct {
 	CategoryName string
 }
 
+// gqlDiscussionNode represents the common structure for GraphQL discussion nodes.
+// This type is used to reduce code duplication when mapping query results (SonarQube S1192).
+type gqlDiscussionNode struct {
+	Number    githubv4.Int
+	Title     githubv4.String
+	CreatedAt githubv4.DateTime
+	Category  struct {
+		Name githubv4.String
+	} `graphql:"category"`
+	URL githubv4.String `graphql:"url"`
+}
+
+// toDiscussionNode converts a GraphQL discussion node to a discussionNode.
+func (n gqlDiscussionNode) toDiscussionNode() discussionNode {
+	return discussionNode{
+		Number:       int(n.Number),
+		Title:        string(n.Title),
+		URL:          string(n.URL),
+		CreatedAt:    github.Timestamp{Time: n.CreatedAt.Time},
+		CategoryName: string(n.Category.Name),
+	}
+}
+
 // mapDiscussionNodeToIssue converts a discussionNode to a GitHub Issue object.
 func mapDiscussionNodeToIssue(node discussionNode) *github.Issue {
 	return &github.Issue{
@@ -47,81 +70,61 @@ func mapDiscussionNodeToIssue(node discussionNode) *github.Issue {
 	}
 }
 
+// mapGQLNodesToDiscussionNodes converts a slice of GraphQL nodes to discussionNodes.
+func mapGQLNodesToDiscussionNodes(gqlNodes []gqlDiscussionNode) []discussionNode {
+	nodes := make([]discussionNode, 0, len(gqlNodes))
+	for _, n := range gqlNodes {
+		nodes = append(nodes, n.toDiscussionNode())
+	}
+	return nodes
+}
+
 // fetchDiscussionNodes fetches discussion nodes from GitHub GraphQL API.
 // This function reduces cognitive complexity by encapsulating the query logic (SonarQube S3776).
 func fetchDiscussionNodes(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID *githubv4.ID) ([]discussionNode, error) {
-	var nodes []discussionNode
-
 	if categoryID != nil {
-		// Query with category filter (server-side filtering)
-		var query struct {
-			Repository struct {
-				Discussions struct {
-					Nodes []struct {
-						Number    githubv4.Int
-						Title     githubv4.String
-						CreatedAt githubv4.DateTime
-						Category  struct {
-							Name githubv4.String
-						} `graphql:"category"`
-						URL githubv4.String `graphql:"url"`
-					}
-				} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
-			} `graphql:"repository(owner: $owner, name: $repo)"`
-		}
-		vars := map[string]interface{}{
-			"owner":      githubv4.String(owner),
-			"repo":       githubv4.String(repo),
-			"categoryId": *categoryID,
-		}
-		if err := client.Query(ctx, &query, vars); err != nil {
-			return nil, err
-		}
-		for _, n := range query.Repository.Discussions.Nodes {
-			nodes = append(nodes, discussionNode{
-				Number:       int(n.Number),
-				Title:        string(n.Title),
-				URL:          string(n.URL),
-				CreatedAt:    github.Timestamp{Time: n.CreatedAt.Time},
-				CategoryName: string(n.Category.Name),
-			})
-		}
-	} else {
-		// Query without category filter
-		var query struct {
-			Repository struct {
-				Discussions struct {
-					Nodes []struct {
-						Number    githubv4.Int
-						Title     githubv4.String
-						CreatedAt githubv4.DateTime
-						Category  struct {
-							Name githubv4.String
-						} `graphql:"category"`
-						URL githubv4.String `graphql:"url"`
-					}
-				} `graphql:"discussions(first: 100)"`
-			} `graphql:"repository(owner: $owner, name: $repo)"`
-		}
-		vars := map[string]interface{}{
-			"owner": githubv4.String(owner),
-			"repo":  githubv4.String(repo),
-		}
-		if err := client.Query(ctx, &query, vars); err != nil {
-			return nil, err
-		}
-		for _, n := range query.Repository.Discussions.Nodes {
-			nodes = append(nodes, discussionNode{
-				Number:       int(n.Number),
-				Title:        string(n.Title),
-				URL:          string(n.URL),
-				CreatedAt:    github.Timestamp{Time: n.CreatedAt.Time},
-				CategoryName: string(n.Category.Name),
-			})
-		}
+		return fetchDiscussionsWithCategory(ctx, client, owner, repo, *categoryID)
 	}
+	return fetchDiscussionsWithoutCategory(ctx, client, owner, repo)
+}
 
-	return nodes, nil
+// fetchDiscussionsWithCategory fetches discussions filtered by category.
+func fetchDiscussionsWithCategory(ctx context.Context, client *githubv4.Client, owner, repo string, categoryID githubv4.ID) ([]discussionNode, error) {
+	var query struct {
+		Repository struct {
+			Discussions struct {
+				Nodes []gqlDiscussionNode
+			} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+	vars := map[string]interface{}{
+		"owner":      githubv4.String(owner),
+		"repo":       githubv4.String(repo),
+		"categoryId": categoryID,
+	}
+	if err := client.Query(ctx, &query, vars); err != nil {
+		return nil, err
+	}
+	return mapGQLNodesToDiscussionNodes(query.Repository.Discussions.Nodes), nil
+}
+
+// fetchDiscussionsWithoutCategory fetches all discussions without category filter.
+func fetchDiscussionsWithoutCategory(ctx context.Context, client *githubv4.Client, owner, repo string) ([]discussionNode, error) {
+	var query struct {
+		Repository struct {
+			Discussions struct {
+				Nodes []gqlDiscussionNode
+			} `graphql:"discussions(first: 100)"`
+		} `graphql:"repository(owner: $owner, name: $repo)"`
+	}
+	vars := map[string]interface{}{
+		"owner": githubv4.String(owner),
+		"repo":  githubv4.String(repo),
+	}
+	if err := client.Query(ctx, &query, vars); err != nil {
+		return nil, err
+	}
+	return mapGQLNodesToDiscussionNodes(query.Repository.Discussions.Nodes), nil
 }
 
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
