@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,6 +22,317 @@ const (
 	FilterIncludeRead       = "include_read_notifications"
 	FilterOnlyParticipating = "only_participating"
 )
+
+// Error message constants to avoid duplication (S1192)
+const (
+	errFailedToGetGitHubClient  = "failed to get GitHub client: %w"
+	errFailedToReadResponseBody = "failed to read response body: %w"
+	errFailedToMarshalResponse  = "failed to marshal response: %w"
+)
+
+// listNotificationsParams holds the extracted parameters for listing notifications.
+type listNotificationsParams struct {
+	filter     string
+	since      string
+	before     string
+	owner      string
+	repo       string
+	pagination PaginationParams
+}
+
+// extractListNotificationsParams extracts all parameters for listing notifications from the request.
+func extractListNotificationsParams(request mcp.CallToolRequest) (*listNotificationsParams, error) {
+	filter, err := OptionalParam[string](request, "filter")
+	if err != nil {
+		return nil, err
+	}
+
+	since, err := OptionalParam[string](request, "since")
+	if err != nil {
+		return nil, err
+	}
+
+	before, err := OptionalParam[string](request, "before")
+	if err != nil {
+		return nil, err
+	}
+
+	owner, err := OptionalParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := OptionalParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+
+	paginationParams, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &listNotificationsParams{
+		filter:     filter,
+		since:      since,
+		before:     before,
+		owner:      owner,
+		repo:       repo,
+		pagination: paginationParams,
+	}, nil
+}
+
+// parseRFC3339Time parses a time string in RFC3339 format.
+// Returns zero time if the input is empty.
+func parseRFC3339Time(timeStr, fieldName string) (time.Time, error) {
+	if timeStr == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid %s time format, should be RFC3339/ISO8601: %v", fieldName, err)
+	}
+	return t, nil
+}
+
+// buildNotificationListOptions builds the NotificationListOptions from the extracted parameters.
+func buildNotificationListOptions(params *listNotificationsParams) (*github.NotificationListOptions, error) {
+	opts := &github.NotificationListOptions{
+		All:           params.filter == FilterIncludeRead,
+		Participating: params.filter == FilterOnlyParticipating,
+		ListOptions: github.ListOptions{
+			Page:    params.pagination.page,
+			PerPage: params.pagination.perPage,
+		},
+	}
+
+	sinceTime, err := parseRFC3339Time(params.since, "since")
+	if err != nil {
+		return nil, err
+	}
+	if !sinceTime.IsZero() {
+		opts.Since = sinceTime
+	}
+
+	beforeTime, err := parseRFC3339Time(params.before, "before")
+	if err != nil {
+		return nil, err
+	}
+	if !beforeTime.IsZero() {
+		opts.Before = beforeTime
+	}
+
+	return opts, nil
+}
+
+// fetchNotifications fetches notifications from the GitHub API.
+func fetchNotifications(
+	ctx context.Context,
+	client *github.Client,
+	owner, repo string,
+	opts *github.NotificationListOptions,
+) ([]*github.Notification, *github.Response, error) {
+	if owner != "" && repo != "" {
+		return client.Activity.ListRepositoryNotifications(ctx, owner, repo, opts)
+	}
+	return client.Activity.ListNotifications(ctx, opts)
+}
+
+// handleNotificationResponse processes the API response and returns the appropriate result.
+func handleNotificationResponse(resp *github.Response, notifications []*github.Notification) (*mcp.CallToolResult, error) {
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(errFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
+	}
+
+	r, err := json.Marshal(notifications)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToMarshalResponse, err)
+	}
+
+	return mcp.NewToolResultText(string(r)), nil
+}
+
+// dismissNotificationByState marks a notification as read or done based on the state.
+func dismissNotificationByState(
+	ctx context.Context,
+	client *github.Client,
+	threadID, state string,
+) (*github.Response, error) {
+	switch state {
+	case "done":
+		threadIDInt, err := strconv.ParseInt(threadID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid threadID format: %v", err)
+		}
+		return client.Activity.MarkThreadDone(ctx, threadIDInt)
+	case "read":
+		return client.Activity.MarkThreadRead(ctx, threadID)
+	default:
+		return nil, errors.New("Invalid state. Must be one of: read, done.") //nolint:revive,staticcheck // user-facing error message
+	}
+}
+
+// handleDismissResponse processes the dismiss notification response.
+func handleDismissResponse(resp *github.Response, state string) (*mcp.CallToolResult, error) {
+	if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(errFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to mark notification as %s: %s", state, string(body))), nil
+	}
+	return mcp.NewToolResultText(fmt.Sprintf("Notification marked as %s", state)), nil
+}
+
+// markAllNotificationsReadParams holds the extracted parameters for marking all notifications as read.
+type markAllNotificationsReadParams struct {
+	lastReadAt string
+	owner      string
+	repo       string
+}
+
+// extractMarkAllNotificationsReadParams extracts parameters for marking all notifications as read.
+func extractMarkAllNotificationsReadParams(request mcp.CallToolRequest) (*markAllNotificationsReadParams, error) {
+	lastReadAt, err := OptionalParam[string](request, "lastReadAt")
+	if err != nil {
+		return nil, err
+	}
+
+	owner, err := OptionalParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+
+	repo, err := OptionalParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+
+	return &markAllNotificationsReadParams{
+		lastReadAt: lastReadAt,
+		owner:      owner,
+		repo:       repo,
+	}, nil
+}
+
+// parseLastReadAtTime parses the lastReadAt time or returns the current time if empty.
+func parseLastReadAtTime(lastReadAt string) (time.Time, error) {
+	if lastReadAt == "" {
+		return time.Now(), nil
+	}
+	t, err := time.Parse(time.RFC3339, lastReadAt)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)
+	}
+	return t, nil
+}
+
+// markNotificationsRead marks notifications as read using the GitHub API.
+func markNotificationsRead(
+	ctx context.Context,
+	client *github.Client,
+	owner, repo string,
+	markReadOptions github.Timestamp,
+) (*github.Response, error) {
+	if owner != "" && repo != "" {
+		return client.Activity.MarkRepositoryNotificationsRead(ctx, owner, repo, markReadOptions)
+	}
+	return client.Activity.MarkNotificationsRead(ctx, markReadOptions)
+}
+
+// handleMarkAllReadResponse processes the mark all notifications read response.
+func handleMarkAllReadResponse(resp *github.Response) (*mcp.CallToolResult, error) {
+	if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf(errFailedToReadResponseBody, err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
+	}
+	return mcp.NewToolResultText("All notifications marked as read"), nil
+}
+
+// executeThreadSubscriptionAction executes the subscription action on a notification thread.
+func executeThreadSubscriptionAction(
+	ctx context.Context,
+	client *github.Client,
+	notificationID, action string,
+) (any, *github.Response, error) {
+	switch action {
+	case NotificationActionIgnore:
+		sub := &github.Subscription{Ignored: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionWatch:
+		sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionDelete:
+		resp, err := client.Activity.DeleteThreadSubscription(ctx, notificationID)
+		return nil, resp, err
+	default:
+		return nil, nil, errors.New("Invalid action. Must be one of: ignore, watch, delete.") //nolint:revive,staticcheck // user-facing error message
+	}
+}
+
+// handleSubscriptionResponse processes the subscription action response.
+func handleSubscriptionResponse(resp *github.Response, action string, result any) (*mcp.CallToolResult, error) {
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
+	}
+
+	if action == NotificationActionDelete {
+		return mcp.NewToolResultText("Notification subscription deleted"), nil
+	}
+
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
+// executeRepoSubscriptionAction executes the subscription action on a repository.
+func executeRepoSubscriptionAction(
+	ctx context.Context,
+	client *github.Client,
+	owner, repo, action string,
+) (any, *github.Response, error) {
+	switch action {
+	case RepositorySubscriptionActionIgnore:
+		sub := &github.Subscription{Ignored: ToBoolPtr(true)}
+		return client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
+	case RepositorySubscriptionActionWatch:
+		sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
+		return client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
+	case RepositorySubscriptionActionDelete:
+		resp, err := client.Activity.DeleteRepositorySubscription(ctx, owner, repo)
+		return nil, resp, err
+	default:
+		return nil, nil, errors.New("Invalid action. Must be one of: ignore, watch, delete.") //nolint:revive,staticcheck // user-facing error message
+	}
+}
+
+// handleRepoSubscriptionResponse processes the repository subscription action response.
+func handleRepoSubscriptionResponse(resp *github.Response, action string, result any) (*mcp.CallToolResult, error) {
+	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		body, _ := io.ReadAll(resp.Body)
+		return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
+	}
+
+	if action == RepositorySubscriptionActionDelete {
+		return mcp.NewToolResultText("Repository subscription deleted"), nil
+	}
+
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
 
 // ListNotifications creates a tool to list notifications for the current user.
 func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
@@ -51,97 +363,26 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
-			filter, err := OptionalParam[string](request, "filter")
+			params, err := extractListNotificationsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			since, err := OptionalParam[string](request, "since")
+			opts, err := buildNotificationListOptions(params)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			before, err := OptionalParam[string](request, "before")
+			notifications, resp, err := fetchNotifications(ctx, client, params.owner, params.repo, opts)
 			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			owner, err := OptionalParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := OptionalParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			paginationParams, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Build options
-			opts := &github.NotificationListOptions{
-				All:           filter == FilterIncludeRead,
-				Participating: filter == FilterOnlyParticipating,
-				ListOptions: github.ListOptions{
-					Page:    paginationParams.page,
-					PerPage: paginationParams.perPage,
-				},
-			}
-
-			// Parse time parameters if provided
-			if since != "" {
-				sinceTime, err := time.Parse(time.RFC3339, since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid since time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Since = sinceTime
-			}
-
-			if before != "" {
-				beforeTime, err := time.Parse(time.RFC3339, before)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid before time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Before = beforeTime
-			}
-
-			var notifications []*github.Notification
-			var resp *github.Response
-
-			if owner != "" && repo != "" {
-				notifications, resp, err = client.Activity.ListRepositoryNotifications(ctx, owner, repo, opts)
-			} else {
-				notifications, resp, err = client.Activity.ListNotifications(ctx, opts)
-			}
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to list notifications",
-					resp,
-					err,
-				), nil
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to list notifications", resp, err), nil
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
-			}
-
-			// Marshal response to JSON
-			r, err := json.Marshal(notifications)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return handleNotificationResponse(resp, notifications)
 		}
 }
 
@@ -162,7 +403,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getclient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
 			threadID, err := RequiredParam[string](request, "threadID")
@@ -175,40 +416,16 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var resp *github.Response
-			switch state {
-			case "done":
-				// for some inexplicable reason, the API seems to have threadID as int64 and string depending on the endpoint
-				var threadIDInt int64
-				threadIDInt, err = strconv.ParseInt(threadID, 10, 64)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid threadID format: %v", err)), nil
-				}
-				resp, err = client.Activity.MarkThreadDone(ctx, threadIDInt)
-			case "read":
-				resp, err = client.Activity.MarkThreadRead(ctx, threadID)
-			default:
-				return mcp.NewToolResultError("Invalid state. Must be one of: read, done."), nil
-			}
-
+			resp, err := dismissNotificationByState(ctx, client, threadID, state)
 			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to mark notification as %s", state),
-					resp,
-					err,
-				), nil
+				if resp == nil {
+					return mcp.NewToolResultError(err.Error()), nil
+				}
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, fmt.Sprintf("failed to mark notification as %s", state), resp, err), nil
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark notification as %s: %s", state, string(body))), nil
-			}
-
-			return mcp.NewToolResultText(fmt.Sprintf("Notification marked as %s", state)), nil
+			return handleDismissResponse(resp, state)
 		}
 }
 
@@ -233,61 +450,27 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
-			lastReadAt, err := OptionalParam[string](request, "lastReadAt")
+			params, err := extractMarkAllNotificationsReadParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			owner, err := OptionalParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := OptionalParam[string](request, "repo")
+			lastReadTime, err := parseLastReadAtTime(params.lastReadAt)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var lastReadTime time.Time
-			if lastReadAt != "" {
-				lastReadTime, err = time.Parse(time.RFC3339, lastReadAt)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-			} else {
-				lastReadTime = time.Now()
-			}
-
-			markReadOptions := github.Timestamp{
-				Time: lastReadTime,
-			}
-
-			var resp *github.Response
-			if owner != "" && repo != "" {
-				resp, err = client.Activity.MarkRepositoryNotificationsRead(ctx, owner, repo, markReadOptions)
-			} else {
-				resp, err = client.Activity.MarkNotificationsRead(ctx, markReadOptions)
-			}
+			markReadOptions := github.Timestamp{Time: lastReadTime}
+			resp, err := markNotificationsRead(ctx, client, params.owner, params.repo, markReadOptions)
 			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to mark all notifications as read",
-					resp,
-					err,
-				), nil
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to mark all notifications as read", resp, err), nil
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
-			}
-
-			return mcp.NewToolResultText("All notifications marked as read"), nil
+			return handleMarkAllReadResponse(resp)
 		}
 }
 
@@ -307,7 +490,7 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -328,14 +511,14 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 			if resp.StatusCode != http.StatusOK {
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
+					return nil, fmt.Errorf(errFailedToReadResponseBody, err)
 				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get notification details: %s", string(body))), nil
 			}
 
 			r, err := json.Marshal(thread)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -370,7 +553,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
 			notificationID, err := RequiredParam[string](request, "notificationID")
@@ -382,49 +565,16 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var (
-				resp   *github.Response
-				result any
-				apiErr error
-			)
-
-			switch action {
-			case NotificationActionIgnore:
-				sub := &github.Subscription{Ignored: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionWatch:
-				sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionDelete:
-				resp, apiErr = client.Activity.DeleteThreadSubscription(ctx, notificationID)
-			default:
-				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
-			}
-
+			result, resp, apiErr := executeThreadSubscriptionAction(ctx, client, notificationID, action)
 			if apiErr != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to %s notification subscription", action),
-					resp,
-					apiErr,
-				), nil
+				if resp == nil {
+					return mcp.NewToolResultError(apiErr.Error()), nil
+				}
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, fmt.Sprintf("failed to %s notification subscription", action), resp, apiErr), nil
 			}
 			defer func() { _ = resp.Body.Close() }()
 
-			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				body, _ := io.ReadAll(resp.Body)
-				return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
-			}
-
-			if action == NotificationActionDelete {
-				// Special case for delete as there is no response body
-				return mcp.NewToolResultText("Notification subscription deleted"), nil
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-			return mcp.NewToolResultText(string(r)), nil
+			return handleSubscriptionResponse(resp, action, result)
 		}
 }
 
@@ -459,7 +609,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetGitHubClient, err)
 			}
 
 			owner, err := RequiredParam[string](request, "owner")
@@ -475,51 +625,17 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var (
-				resp   *github.Response
-				result any
-				apiErr error
-			)
-
-			switch action {
-			case RepositorySubscriptionActionIgnore:
-				sub := &github.Subscription{Ignored: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
-			case RepositorySubscriptionActionWatch:
-				sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
-			case RepositorySubscriptionActionDelete:
-				resp, apiErr = client.Activity.DeleteRepositorySubscription(ctx, owner, repo)
-			default:
-				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
-			}
-
+			result, resp, apiErr := executeRepoSubscriptionAction(ctx, client, owner, repo, action)
 			if apiErr != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to %s repository subscription", action),
-					resp,
-					apiErr,
-				), nil
+				if resp == nil {
+					return mcp.NewToolResultError(apiErr.Error()), nil
+				}
+				return ghErrors.NewGitHubAPIErrorResponse(ctx, fmt.Sprintf("failed to %s repository subscription", action), resp, apiErr), nil
 			}
 			if resp != nil {
 				defer func() { _ = resp.Body.Close() }()
 			}
 
-			// Handle non-2xx status codes
-			if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-				body, _ := io.ReadAll(resp.Body)
-				return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
-			}
-
-			if action == RepositorySubscriptionActionDelete {
-				// Special case for delete as there is no response body
-				return mcp.NewToolResultText("Repository subscription deleted"), nil
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-			return mcp.NewToolResultText(string(r)), nil
+			return handleRepoSubscriptionResponse(resp, action, result)
 		}
 }
