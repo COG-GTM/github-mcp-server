@@ -30,6 +30,32 @@ const (
 	ErrMarshalResponse = "failed to marshal response: %w"
 )
 
+// parseOwnerRepo extracts the common owner and repo parameters from a request
+func parseOwnerRepo(request mcp.CallToolRequest) (owner, repo string, err error) {
+	owner, err = RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
+// parsePaginationParams extracts the common pagination parameters from a request
+func parsePaginationParams(request mcp.CallToolRequest) (perPage, page int, err error) {
+	perPage, err = OptionalIntParam(request, "per_page")
+	if err != nil {
+		return 0, 0, err
+	}
+	page, err = OptionalIntParam(request, "page")
+	if err != nil {
+		return 0, 0, err
+	}
+	return perPage, page, nil
+}
+
 // ListWorkflows creates a tool to list workflows in a repository
 func ListWorkflows(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_workflows",
@@ -114,11 +140,7 @@ type workflowRunsParams struct {
 
 // parseWorkflowRunsParams extracts parameters for ListWorkflowRuns
 func parseWorkflowRunsParams(request mcp.CallToolRequest) (*workflowRunsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +164,7 @@ func parseWorkflowRunsParams(request mcp.CallToolRequest) (*workflowRunsParams, 
 	if err != nil {
 		return nil, err
 	}
-	perPage, err := OptionalIntParam(request, "per_page")
-	if err != nil {
-		return nil, err
-	}
-	page, err := OptionalIntParam(request, "page")
+	perPage, page, err := parsePaginationParams(request)
 	if err != nil {
 		return nil, err
 	}
@@ -285,11 +303,7 @@ type runWorkflowParams struct {
 
 // parseRunWorkflowParams extracts parameters for RunWorkflow
 func parseRunWorkflowParams(request mcp.CallToolRequest) (*runWorkflowParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -528,11 +542,7 @@ type workflowJobsParams struct {
 
 // parseWorkflowJobsParams extracts parameters for ListWorkflowJobs
 func parseWorkflowJobsParams(request mcp.CallToolRequest) (*workflowJobsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -544,11 +554,7 @@ func parseWorkflowJobsParams(request mcp.CallToolRequest) (*workflowJobsParams, 
 	if err != nil {
 		return nil, err
 	}
-	perPage, err := OptionalIntParam(request, "per_page")
-	if err != nil {
-		return nil, err
-	}
-	page, err := OptionalIntParam(request, "page")
+	perPage, page, err := parsePaginationParams(request)
 	if err != nil {
 		return nil, err
 	}
@@ -645,11 +651,7 @@ type jobLogsParams struct {
 
 // parseJobLogsParams extracts and validates parameters for GetJobLogs
 func parseJobLogsParams(request mcp.CallToolRequest) (*jobLogsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -1116,11 +1118,7 @@ type artifactsParams struct {
 
 // parseArtifactsParams extracts parameters for ListWorkflowRunArtifacts
 func parseArtifactsParams(request mcp.CallToolRequest) (*artifactsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -1128,11 +1126,7 @@ func parseArtifactsParams(request mcp.CallToolRequest) (*artifactsParams, error)
 	if err != nil {
 		return nil, err
 	}
-	perPage, err := OptionalIntParam(request, "per_page")
-	if err != nil {
-		return nil, err
-	}
-	page, err := OptionalIntParam(request, "page")
+	perPage, page, err := parsePaginationParams(request)
 	if err != nil {
 		return nil, err
 	}
