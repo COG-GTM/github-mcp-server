@@ -23,53 +23,6 @@ const (
 	errFailedToGetLatestReviewForCurrUser = "failed to get latest review for current user"
 )
 
-// pullRequestFilesParams holds the extracted parameters for GetPullRequestFiles
-type pullRequestFilesParams struct {
-	owner      string
-	repo       string
-	pullNumber int
-	pagination PaginationParams
-}
-
-// extractPullRequestFilesParams extracts and validates parameters for GetPullRequestFiles
-func extractPullRequestFilesParams(request mcp.CallToolRequest) (*pullRequestFilesParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
-	if err != nil {
-		return nil, err
-	}
-	pullNumber, err := RequiredInt(request, "pullNumber")
-	if err != nil {
-		return nil, err
-	}
-	pagination, err := OptionalPaginationParams(request)
-	if err != nil {
-		return nil, err
-	}
-	return &pullRequestFilesParams{
-		owner:      owner,
-		repo:       repo,
-		pullNumber: pullNumber,
-		pagination: pagination,
-	}, nil
-}
-
-// fetchPullRequestFiles fetches the files changed in a pull request
-func fetchPullRequestFiles(
-	ctx context.Context,
-	client *github.Client,
-	params *pullRequestFilesParams,
-) ([]*github.CommitFile, *github.Response, error) {
-	opts := &github.ListOptions{
-		PerPage: params.pagination.perPage,
-		Page:    params.pagination.page,
-	}
-	return client.PullRequests.ListFiles(ctx, params.owner, params.repo, params.pullNumber, opts)
-}
-
 // GetPullRequest creates a tool to get details of a specific pull request.
 func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request",
@@ -654,7 +607,19 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			params, err := extractPullRequestFilesParams(request)
+			owner, err := RequiredParam[string](request, "owner")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			repo, err := RequiredParam[string](request, "repo")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			pullNumber, err := RequiredInt(request, "pullNumber")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			pagination, err := OptionalPaginationParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -663,8 +628,11 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			if err != nil {
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
-
-			files, resp, err := fetchPullRequestFiles(ctx, client, params)
+			opts := &github.ListOptions{
+				PerPage: pagination.perPage,
+				Page:    pagination.page,
+			}
+			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to get pull request files",
