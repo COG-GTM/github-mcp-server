@@ -516,7 +516,6 @@ func GetWorkflowRunLogs(getClient GetClientFn, t translations.TranslationHelperF
 		}
 }
 
-// ListWorkflowJobs creates a tool to list jobs for a specific workflow run
 // workflowJobsParams holds the parsed parameters for ListWorkflowJobs
 type workflowJobsParams struct {
 	owner   string
@@ -1106,7 +1105,6 @@ func CancelWorkflowRun(getClient GetClientFn, t translations.TranslationHelperFu
 		}
 }
 
-// ListWorkflowRunArtifacts creates a tool to list artifacts for a workflow run
 // artifactsParams holds the parsed parameters for ListWorkflowRunArtifacts
 type artifactsParams struct {
 	owner   string
