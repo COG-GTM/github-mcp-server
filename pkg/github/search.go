@@ -13,6 +13,9 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// sortOrderDescription is a constant for the duplicated "Sort order" description string (S1192)
+const sortOrderDescription = "Sort order"
+
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("search_repositories",
@@ -91,7 +94,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				mcp.Description("Sort field ('indexed' only)"),
 			),
 			mcp.WithString("order",
-				mcp.Description("Sort order"),
+				mcp.Description(sortOrderDescription),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -168,31 +171,86 @@ type MinimalSearchUsersResult struct {
 	Items             []MinimalUser `json:"items"`
 }
 
+// userSearchParams holds the extracted parameters for user/org search
+type userSearchParams struct {
+	query      string
+	sort       string
+	order      string
+	pagination PaginationParams
+}
+
+// extractUserSearchParams extracts and validates search parameters from the request
+func extractUserSearchParams(request mcp.CallToolRequest) (*userSearchParams, error) {
+	query, err := RequiredParam[string](request, "query")
+	if err != nil {
+		return nil, err
+	}
+	sort, err := OptionalParam[string](request, "sort")
+	if err != nil {
+		return nil, err
+	}
+	order, err := OptionalParam[string](request, "order")
+	if err != nil {
+		return nil, err
+	}
+	pag, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+	return &userSearchParams{
+		query:      query,
+		sort:       sort,
+		order:      order,
+		pagination: pag,
+	}, nil
+}
+
+// convertToMinimalUser converts a GitHub User to MinimalUser
+func convertToMinimalUser(user *github.User) *MinimalUser {
+	if user.Login == nil {
+		return nil
+	}
+	mu := &MinimalUser{Login: *user.Login}
+	if user.ID != nil {
+		mu.ID = *user.ID
+	}
+	if user.HTMLURL != nil {
+		mu.ProfileURL = *user.HTMLURL
+	}
+	if user.AvatarURL != nil {
+		mu.AvatarURL = *user.AvatarURL
+	}
+	return mu
+}
+
+// buildMinimalSearchResult converts GitHub search results to MinimalSearchUsersResult
+func buildMinimalSearchResult(result *github.UsersSearchResult) *MinimalSearchUsersResult {
+	minimalUsers := make([]MinimalUser, 0, len(result.Users))
+	for _, user := range result.Users {
+		if mu := convertToMinimalUser(user); mu != nil {
+			minimalUsers = append(minimalUsers, *mu)
+		}
+	}
+	return &MinimalSearchUsersResult{
+		TotalCount:        result.GetTotal(),
+		IncompleteResults: result.GetIncompleteResults(),
+		Items:             minimalUsers,
+	}
+}
+
 func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		query, err := RequiredParam[string](request, "query")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		sort, err := OptionalParam[string](request, "sort")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		order, err := OptionalParam[string](request, "order")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		pagination, err := OptionalPaginationParams(request)
+		params, err := extractUserSearchParams(request)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 
 		opts := &github.SearchOptions{
-			Sort:  sort,
-			Order: order,
+			Sort:  params.sort,
+			Order: params.order,
 			ListOptions: github.ListOptions{
-				PerPage: pagination.perPage,
-				Page:    pagination.page,
+				PerPage: params.pagination.perPage,
+				Page:    params.pagination.page,
 			},
 		}
 
@@ -201,11 +259,11 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 		}
 
-		searchQuery := "type:" + accountType + " " + query
+		searchQuery := "type:" + accountType + " " + params.query
 		result, resp, err := client.Search.Users(ctx, searchQuery, opts)
 		if err != nil {
 			return ghErrors.NewGitHubAPIErrorResponse(ctx,
-				fmt.Sprintf("failed to search %ss with query '%s'", accountType, query),
+				fmt.Sprintf("failed to search %ss with query '%s'", accountType, params.query),
 				resp,
 				err,
 			), nil
@@ -220,35 +278,7 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
 
-		minimalUsers := make([]MinimalUser, 0, len(result.Users))
-
-		for _, user := range result.Users {
-			if user.Login != nil {
-				mu := MinimalUser{Login: *user.Login}
-				if user.ID != nil {
-					mu.ID = *user.ID
-				}
-				if user.HTMLURL != nil {
-					mu.ProfileURL = *user.HTMLURL
-				}
-				if user.AvatarURL != nil {
-					mu.AvatarURL = *user.AvatarURL
-				}
-				minimalUsers = append(minimalUsers, mu)
-			}
-		}
-		minimalResp := &MinimalSearchUsersResult{
-			TotalCount:        result.GetTotal(),
-			IncompleteResults: result.GetIncompleteResults(),
-			Items:             minimalUsers,
-		}
-		if result.Total != nil {
-			minimalResp.TotalCount = *result.Total
-		}
-		if result.IncompleteResults != nil {
-			minimalResp.IncompleteResults = *result.IncompleteResults
-		}
-
+		minimalResp := buildMinimalSearchResult(result)
 		r, err := json.Marshal(minimalResp)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal response: %w", err)
@@ -274,7 +304,7 @@ func SearchUsers(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+			mcp.Description(sortOrderDescription),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
@@ -298,7 +328,7 @@ func SearchOrgs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+			mcp.Description(sortOrderDescription),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
