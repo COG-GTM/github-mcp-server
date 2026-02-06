@@ -98,17 +98,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 				// Map nodes to GitHub Issue objects
 				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf(categoryLabelFmt, string(n.Category.Name))),
-							},
-						},
-					}
+					di := newIssueFromNode(n.Number, n.Title, n.CreatedAt, n.Category.Name, n.URL)
 					discussions = append(discussions, di)
 				}
 			} else {
@@ -138,17 +128,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 				// Map nodes to GitHub Issue objects
 				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf(categoryLabelFmt, string(n.Category.Name))),
-							},
-						},
-					}
+					di := newIssueFromNode(n.Number, n.Title, n.CreatedAt, n.Category.Name, n.URL)
 					discussions = append(discussions, di)
 				}
 			}
@@ -402,4 +382,18 @@ func validatePaginationParams(first, last int32, after, before string) error {
 		return fmt.Errorf("'before' cannot be used with 'first'. Did you mean to use 'after' instead?")
 	}
 	return nil
+}
+
+func newIssueFromNode(number githubv4.Int, title githubv4.String, createdAt githubv4.DateTime, categoryName githubv4.String, url githubv4.String) *github.Issue {
+	return &github.Issue{
+		Number:    github.Ptr(int(number)),
+		Title:     github.Ptr(string(title)),
+		HTMLURL:   github.Ptr(string(url)),
+		CreatedAt: &github.Timestamp{Time: createdAt.Time},
+		Labels: []*github.Label{
+			{
+				Name: github.Ptr(fmt.Sprintf(categoryLabelFmt, string(categoryName))),
+			},
+		},
+	}
 }
