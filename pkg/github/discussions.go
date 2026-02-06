@@ -20,6 +20,14 @@ const (
 	categoryLabelFmt = "category:%s"
 )
 
+type discussionNode struct {
+	Number    githubv4.Int
+	Title     githubv4.String
+	CreatedAt githubv4.DateTime
+	Category  struct{ Name githubv4.String } `graphql:"category"`
+	URL       githubv4.String                `graphql:"url"`
+}
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -70,20 +78,13 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 
 			// Now execute the discussions query
 			var discussions []*github.Issue
+			var nodes []discussionNode
 			if categoryID != nil {
 				// Query with category filter (server-side filtering)
 				var query struct {
 					Repository struct {
 						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
+							Nodes []discussionNode
 						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
 					} `graphql:"repository(owner: $owner, name: $repo)"`
 				}
@@ -96,25 +97,13 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 					return mcp.NewToolResultError(err.Error()), nil
 				}
 
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := newIssueFromNode(n.Number, n.Title, n.CreatedAt, n.Category.Name, n.URL)
-					discussions = append(discussions, di)
-				}
+				nodes = query.Repository.Discussions.Nodes
 			} else {
 				// Query without category filter
 				var query struct {
 					Repository struct {
 						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
+							Nodes []discussionNode
 						} `graphql:"discussions(first: 100)"`
 					} `graphql:"repository(owner: $owner, name: $repo)"`
 				}
@@ -126,11 +115,12 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 					return mcp.NewToolResultError(err.Error()), nil
 				}
 
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := newIssueFromNode(n.Number, n.Title, n.CreatedAt, n.Category.Name, n.URL)
-					discussions = append(discussions, di)
-				}
+				nodes = query.Repository.Discussions.Nodes
+			}
+
+			// Map nodes to GitHub Issues
+			for _, n := range nodes {
+				discussions = append(discussions, newIssueFromNode(n.Number, n.Title, n.CreatedAt, n.Category.Name, n.URL))
 			}
 
 			// Marshal and return
