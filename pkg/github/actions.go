@@ -172,6 +172,22 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 		newListWorkflowRunsHandler(getClient)
 }
 
+func marshalToToolResult(v any) (*mcp.CallToolResult, error) {
+	r, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
+func requiredInt64Param(request mcp.CallToolRequest, name string) (int64, error) {
+	v, err := RequiredInt(request, name)
+	if err != nil {
+		return 0, err
+	}
+	return int64(v), nil
+}
+
 func parseOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
 	owner, err := RequiredParam[string](request, "owner")
 	if err != nil {
@@ -211,12 +227,7 @@ func newListWorkflowRunsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		r, err := json.Marshal(workflowRuns)
-		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-		}
-
-		return mcp.NewToolResultText(string(r)), nil
+		return marshalToToolResult(workflowRuns)
 	}
 }
 
@@ -336,7 +347,7 @@ func newRunWorkflowHandler(getClient GetClientFn) server.ToolHandlerFunc {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		result := map[string]any{
+		return marshalToToolResult(map[string]any{
 			"message":       "Workflow run has been queued",
 			"workflow_type": workflowType,
 			"workflow_id":   workflowID,
@@ -344,14 +355,7 @@ func newRunWorkflowHandler(getClient GetClientFn) server.ToolHandlerFunc {
 			"inputs":        inputs,
 			"status":        resp.Status,
 			"status_code":   resp.StatusCode,
-		}
-
-		r, err := json.Marshal(result)
-		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-		}
-
-		return mcp.NewToolResultText(string(r)), nil
+		})
 	}
 }
 
@@ -533,11 +537,10 @@ func newListWorkflowJobsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		runIDInt, err := RequiredInt(request, "run_id")
+		runID, err := requiredInt64Param(request, "run_id")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		runID := int64(runIDInt)
 
 		opts, err := parseListWorkflowJobsParams(request)
 		if err != nil {
@@ -555,17 +558,10 @@ func newListWorkflowJobsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		response := map[string]any{
+		return marshalToToolResult(map[string]any{
 			"jobs":             jobs,
 			"optimization_tip": "For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id=" + fmt.Sprintf("%d", runID) + " to get logs directly without needing to list jobs first",
-		}
-
-		r, err := json.Marshal(response)
-		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-		}
-
-		return mcp.NewToolResultText(string(r)), nil
+		})
 	}
 }
 
@@ -1092,11 +1088,10 @@ func newListWorkflowRunArtifactsHandler(getClient GetClientFn) server.ToolHandle
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		runIDInt, err := RequiredInt(request, "run_id")
+		runID, err := requiredInt64Param(request, "run_id")
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
-		runID := int64(runIDInt)
 
 		opts, err := parsePaginationParams(request)
 		if err != nil {
@@ -1114,12 +1109,7 @@ func newListWorkflowRunArtifactsHandler(getClient GetClientFn) server.ToolHandle
 		}
 		defer func() { _ = resp.Body.Close() }()
 
-		r, err := json.Marshal(artifacts)
-		if err != nil {
-			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-		}
-
-		return mcp.NewToolResultText(string(r)), nil
+		return marshalToToolResult(artifacts)
 	}
 }
 
