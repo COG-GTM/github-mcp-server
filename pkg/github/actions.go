@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	DescriptionRepositoryOwner    = "Repository owner"
-	DescriptionRepositoryName     = "Repository name"
-	DescriptionPerPage            = "The number of results per page (max 100)"
-	DescriptionPage               = "The page number of the results to fetch"
-	DescriptionWorkflowRunID      = "The unique identifier of the workflow run"
-	ErrFailedToGetGitHubClient    = "failed to get GitHub client: %w"
-	ErrFailedToMarshalResponse    = "failed to marshal response: %w"
+	DescriptionRepositoryOwner = "Repository owner"
+	DescriptionRepositoryName  = "Repository name"
+	DescriptionPerPage         = "The number of results per page (max 100)"
+	DescriptionPage            = "The page number of the results to fetch"
+	DescriptionWorkflowRunID   = "The unique identifier of the workflow run"
+	ErrFailedToGetGitHubClient = "failed to get GitHub client: %w"
+	ErrFailedToMarshalResponse = "failed to marshal response: %w"
 )
 
 // ListWorkflows creates a tool to list workflows in a repository
@@ -169,78 +169,85 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 				mcp.Description(DescriptionPage),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			workflowID, err := RequiredParam[string](request, "workflow_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+		newListWorkflowRunsHandler(getClient)
+}
 
-			// Get optional filtering parameters
-			actor, err := OptionalParam[string](request, "actor")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			branch, err := OptionalParam[string](request, "branch")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			event, err := OptionalParam[string](request, "event")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			status, err := OptionalParam[string](request, "status")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Get optional pagination parameters
-			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-
-			// Set up list options
-			opts := &github.ListWorkflowRunsOptions{
-				Actor:  actor,
-				Branch: branch,
-				Event:  event,
-				Status: status,
-				ListOptions: github.ListOptions{
-					PerPage: perPage,
-					Page:    page,
-				},
-			}
-
-			workflowRuns, resp, err := client.Actions.ListWorkflowRunsByFileName(ctx, owner, repo, workflowID, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to list workflow runs: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			r, err := json.Marshal(workflowRuns)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+func newListWorkflowRunsHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		owner, err := RequiredParam[string](request, "owner")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		repo, err := RequiredParam[string](request, "repo")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		workflowID, err := RequiredParam[string](request, "workflow_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		opts, err := parseListWorkflowRunsParams(request)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+		}
+
+		workflowRuns, resp, err := client.Actions.ListWorkflowRunsByFileName(ctx, owner, repo, workflowID, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list workflow runs: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		r, err := json.Marshal(workflowRuns)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
+}
+
+func parseListWorkflowRunsParams(request mcp.CallToolRequest) (*github.ListWorkflowRunsOptions, error) {
+	actor, err := OptionalParam[string](request, "actor")
+	if err != nil {
+		return nil, err
+	}
+	branch, err := OptionalParam[string](request, "branch")
+	if err != nil {
+		return nil, err
+	}
+	event, err := OptionalParam[string](request, "event")
+	if err != nil {
+		return nil, err
+	}
+	status, err := OptionalParam[string](request, "status")
+	if err != nil {
+		return nil, err
+	}
+	perPage, err := OptionalIntParam(request, "per_page")
+	if err != nil {
+		return nil, err
+	}
+	page, err := OptionalIntParam(request, "page")
+	if err != nil {
+		return nil, err
+	}
+
+	return &github.ListWorkflowRunsOptions{
+		Actor:  actor,
+		Branch: branch,
+		Event:  event,
+		Status: status,
+		ListOptions: github.ListOptions{
+			PerPage: perPage,
+			Page:    page,
+		},
+	}, nil
 }
 
 // RunWorkflow creates a tool to run an Actions workflow
@@ -271,75 +278,84 @@ func RunWorkflow(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				mcp.Description("Inputs the workflow accepts"),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			workflowID, err := RequiredParam[string](request, "workflow_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			ref, err := RequiredParam[string](request, "ref")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+		newRunWorkflowHandler(getClient)
+}
 
-			// Get optional inputs parameter
-			var inputs map[string]interface{}
-			if requestInputs, ok := request.GetArguments()["inputs"]; ok {
-				if inputsMap, ok := requestInputs.(map[string]interface{}); ok {
-					inputs = inputsMap
-				}
-			}
+func parseWorkflowInputs(request mcp.CallToolRequest) map[string]interface{} {
+	requestInputs, ok := request.GetArguments()["inputs"]
+	if !ok {
+		return nil
+	}
+	inputsMap, ok := requestInputs.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	return inputsMap
+}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
+func dispatchWorkflow(ctx context.Context, client *github.Client, owner, repo, workflowID string, event github.CreateWorkflowDispatchEventRequest) (*github.Response, string, error) {
+	if workflowIDInt, parseErr := strconv.ParseInt(workflowID, 10, 64); parseErr == nil {
+		resp, err := client.Actions.CreateWorkflowDispatchEventByID(ctx, owner, repo, workflowIDInt, event)
+		return resp, "workflow_id", err
+	}
+	resp, err := client.Actions.CreateWorkflowDispatchEventByFileName(ctx, owner, repo, workflowID, event)
+	return resp, "workflow_file", err
+}
 
-			event := github.CreateWorkflowDispatchEventRequest{
-				Ref:    ref,
-				Inputs: inputs,
-			}
-
-			var resp *github.Response
-			var workflowType string
-
-			if workflowIDInt, parseErr := strconv.ParseInt(workflowID, 10, 64); parseErr == nil {
-				resp, err = client.Actions.CreateWorkflowDispatchEventByID(ctx, owner, repo, workflowIDInt, event)
-				workflowType = "workflow_id"
-			} else {
-				resp, err = client.Actions.CreateWorkflowDispatchEventByFileName(ctx, owner, repo, workflowID, event)
-				workflowType = "workflow_file"
-			}
-
-			if err != nil {
-				return nil, fmt.Errorf("failed to run workflow: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			result := map[string]any{
-				"message":       "Workflow run has been queued",
-				"workflow_type": workflowType,
-				"workflow_id":   workflowID,
-				"ref":           ref,
-				"inputs":        inputs,
-				"status":        resp.Status,
-				"status_code":   resp.StatusCode,
-			}
-
-			r, err := json.Marshal(result)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+func newRunWorkflowHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		owner, err := RequiredParam[string](request, "owner")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		repo, err := RequiredParam[string](request, "repo")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		workflowID, err := RequiredParam[string](request, "workflow_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		ref, err := RequiredParam[string](request, "ref")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		inputs := parseWorkflowInputs(request)
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+		}
+
+		event := github.CreateWorkflowDispatchEventRequest{
+			Ref:    ref,
+			Inputs: inputs,
+		}
+
+		resp, workflowType, err := dispatchWorkflow(ctx, client, owner, repo, workflowID, event)
+		if err != nil {
+			return nil, fmt.Errorf("failed to run workflow: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		result := map[string]any{
+			"message":       "Workflow run has been queued",
+			"workflow_type": workflowType,
+			"workflow_id":   workflowID,
+			"ref":           ref,
+			"inputs":        inputs,
+			"status":        resp.Status,
+			"status_code":   resp.StatusCode,
+		}
+
+		r, err := json.Marshal(result)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
 }
 
 // GetWorkflowRun creates a tool to get details of a specific workflow run
@@ -495,70 +511,76 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 				mcp.Description(DescriptionPage),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
+		newListWorkflowJobsHandler(getClient)
+}
 
-			// Get optional filtering parameters
-			filter, err := OptionalParam[string](request, "filter")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+func parseListWorkflowJobsParams(request mcp.CallToolRequest) (*github.ListWorkflowJobsOptions, error) {
+	filter, err := OptionalParam[string](request, "filter")
+	if err != nil {
+		return nil, err
+	}
+	perPage, err := OptionalIntParam(request, "per_page")
+	if err != nil {
+		return nil, err
+	}
+	page, err := OptionalIntParam(request, "page")
+	if err != nil {
+		return nil, err
+	}
 
-			// Get optional pagination parameters
-			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+	return &github.ListWorkflowJobsOptions{
+		Filter: filter,
+		ListOptions: github.ListOptions{
+			PerPage: perPage,
+			Page:    page,
+		},
+	}, nil
+}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-
-			// Set up list options
-			opts := &github.ListWorkflowJobsOptions{
-				Filter: filter,
-				ListOptions: github.ListOptions{
-					PerPage: perPage,
-					Page:    page,
-				},
-			}
-
-			jobs, resp, err := client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to list workflow jobs: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			// Add optimization tip for failed job debugging
-			response := map[string]any{
-				"jobs":             jobs,
-				"optimization_tip": "For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id=" + fmt.Sprintf("%d", runID) + " to get logs directly without needing to list jobs first",
-			}
-
-			r, err := json.Marshal(response)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+func newListWorkflowJobsHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		owner, err := RequiredParam[string](request, "owner")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		repo, err := RequiredParam[string](request, "repo")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		runIDInt, err := RequiredInt(request, "run_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		runID := int64(runIDInt)
+
+		opts, err := parseListWorkflowJobsParams(request)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+		}
+
+		jobs, resp, err := client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list workflow jobs: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		response := map[string]any{
+			"jobs":             jobs,
+			"optimization_tip": "For debugging failed jobs, consider using get_job_logs with failed_only=true and run_id=" + fmt.Sprintf("%d", runID) + " to get logs directly without needing to list jobs first",
+		}
+
+		r, err := json.Marshal(response)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
 }
 
 // GetJobLogs creates a tool to download logs for a specific workflow job or efficiently get all failed job logs for a workflow run
@@ -594,65 +616,95 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				mcp.DefaultNumber(500),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+		newGetJobLogsHandler(getClient)
+}
 
-			// Get optional parameters
-			jobID, err := OptionalIntParam(request, "job_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID, err := OptionalIntParam(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			failedOnly, err := OptionalParam[bool](request, "failed_only")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			returnContent, err := OptionalParam[bool](request, "return_content")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			tailLines, err := OptionalIntParam(request, "tail_lines")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			// Default to 500 lines if not specified
-			if tailLines == 0 {
-				tailLines = 500
-			}
+type jobLogsParams struct {
+	owner         string
+	repo          string
+	jobID         int
+	runID         int
+	failedOnly    bool
+	returnContent bool
+	tailLines     int
+}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
+func parseJobLogsParams(request mcp.CallToolRequest) (*jobLogsParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	jobID, err := OptionalIntParam(request, "job_id")
+	if err != nil {
+		return nil, err
+	}
+	runID, err := OptionalIntParam(request, "run_id")
+	if err != nil {
+		return nil, err
+	}
+	failedOnly, err := OptionalParam[bool](request, "failed_only")
+	if err != nil {
+		return nil, err
+	}
+	returnContent, err := OptionalParam[bool](request, "return_content")
+	if err != nil {
+		return nil, err
+	}
+	tailLines, err := OptionalIntParam(request, "tail_lines")
+	if err != nil {
+		return nil, err
+	}
+	if tailLines == 0 {
+		tailLines = 500
+	}
 
-			// Validate parameters
-			if failedOnly && runID == 0 {
-				return mcp.NewToolResultError("run_id is required when failed_only is true"), nil
-			}
-			if !failedOnly && jobID == 0 {
-				return mcp.NewToolResultError("job_id is required when failed_only is false"), nil
-			}
+	return &jobLogsParams{
+		owner:         owner,
+		repo:          repo,
+		jobID:         jobID,
+		runID:         runID,
+		failedOnly:    failedOnly,
+		returnContent: returnContent,
+		tailLines:     tailLines,
+	}, nil
+}
 
-			if failedOnly && runID > 0 {
-				// Handle failed-only mode: get logs for all failed jobs in the workflow run
-				return handleFailedJobLogs(ctx, client, owner, repo, int64(runID), returnContent, tailLines)
-			} else if jobID > 0 {
-				// Handle single job mode
-				return handleSingleJobLogs(ctx, client, owner, repo, int64(jobID), returnContent, tailLines)
-			}
+func validateAndRouteJobLogs(ctx context.Context, client *github.Client, params *jobLogsParams) (*mcp.CallToolResult, error) {
+	if params.failedOnly && params.runID == 0 {
+		return mcp.NewToolResultError("run_id is required when failed_only is true"), nil
+	}
+	if !params.failedOnly && params.jobID == 0 {
+		return mcp.NewToolResultError("job_id is required when failed_only is false"), nil
+	}
 
-			return mcp.NewToolResultError("Either job_id must be provided for single job logs, or run_id with failed_only=true for failed job logs"), nil
+	if params.failedOnly && params.runID > 0 {
+		return handleFailedJobLogs(ctx, client, params.owner, params.repo, int64(params.runID), params.returnContent, params.tailLines)
+	}
+	if params.jobID > 0 {
+		return handleSingleJobLogs(ctx, client, params.owner, params.repo, int64(params.jobID), params.returnContent, params.tailLines)
+	}
+
+	return mcp.NewToolResultError("Either job_id must be provided for single job logs, or run_id with failed_only=true for failed job logs"), nil
+}
+
+func newGetJobLogsHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		params, err := parseJobLogsParams(request)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+		}
+
+		return validateAndRouteJobLogs(ctx, client, params)
+	}
 }
 
 // handleFailedJobLogs gets logs for all failed jobs in a workflow run
@@ -1034,55 +1086,63 @@ func ListWorkflowRunArtifacts(getClient GetClientFn, t translations.TranslationH
 				mcp.Description(DescriptionPage),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runIDInt, err := RequiredInt(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID := int64(runIDInt)
+		newListWorkflowRunArtifactsHandler(getClient)
+}
 
-			// Get optional pagination parameters
-			perPage, err := OptionalIntParam(request, "per_page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			page, err := OptionalIntParam(request, "page")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+func parsePaginationParams(request mcp.CallToolRequest) (*github.ListOptions, error) {
+	perPage, err := OptionalIntParam(request, "per_page")
+	if err != nil {
+		return nil, err
+	}
+	page, err := OptionalIntParam(request, "page")
+	if err != nil {
+		return nil, err
+	}
+	return &github.ListOptions{
+		PerPage: perPage,
+		Page:    page,
+	}, nil
+}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
-			}
-
-			// Set up list options
-			opts := &github.ListOptions{
-				PerPage: perPage,
-				Page:    page,
-			}
-
-			artifacts, resp, err := client.Actions.ListWorkflowRunArtifacts(ctx, owner, repo, runID, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to list workflow run artifacts", resp, err), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			r, err := json.Marshal(artifacts)
-			if err != nil {
-				return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+func newListWorkflowRunArtifactsHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		owner, err := RequiredParam[string](request, "owner")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		repo, err := RequiredParam[string](request, "repo")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		runIDInt, err := RequiredInt(request, "run_id")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		runID := int64(runIDInt)
+
+		opts, err := parsePaginationParams(request)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToGetGitHubClient, err)
+		}
+
+		artifacts, resp, err := client.Actions.ListWorkflowRunArtifacts(ctx, owner, repo, runID, opts)
+		if err != nil {
+			return ghErrors.NewGitHubAPIErrorResponse(ctx, "failed to list workflow run artifacts", resp, err), nil
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		r, err := json.Marshal(artifacts)
+		if err != nil {
+			return nil, fmt.Errorf(ErrFailedToMarshalResponse, err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
 }
 
 // DownloadWorkflowRunArtifact creates a tool to download a workflow run artifact
