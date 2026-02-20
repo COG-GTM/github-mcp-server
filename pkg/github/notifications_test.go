@@ -167,23 +167,7 @@ func assertErrorContains(t *testing.T, text string, checks []errorCheck) {
 	assert.Contains(t, text, "error")
 }
 
-func assertNotificationSubText(t *testing.T, text string, expectIgnored *bool, expectDeleted, expectInvalid bool) {
-	t.Helper()
-	if expectIgnored != nil {
-		var returned github.Subscription
-		err := json.Unmarshal([]byte(text), &returned)
-		require.NoError(t, err)
-		assert.Equal(t, *expectIgnored, *returned.Ignored)
-	}
-	if expectDeleted {
-		assert.Contains(t, text, "deleted")
-	}
-	if expectInvalid {
-		assert.Contains(t, text, "Invalid action")
-	}
-}
-
-func assertRepoSubText(t *testing.T, text string, expectIgnored, expectSubscribed *bool, expectDeleted, expectInvalid bool) {
+func assertSubscriptionText(t *testing.T, text string, expectIgnored, expectSubscribed *bool, expectDeleted, expectInvalid bool) {
 	t.Helper()
 	if expectIgnored != nil || expectSubscribed != nil {
 		var returned github.Subscription
@@ -333,7 +317,7 @@ func Test_ManageNotificationSubscription(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assertNotificationSubText(t, getTextResult(t, result).Text, tc.expectIgnored, tc.expectDeleted, tc.expectInvalid)
+			assertSubscriptionText(t, getTextResult(t, result).Text, tc.expectIgnored, nil, tc.expectDeleted, tc.expectInvalid)
 		})
 	}
 }
@@ -473,7 +457,7 @@ func Test_ManageRepositoryNotificationSubscription(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assertRepoSubText(t, getTextResult(t, result).Text, tc.expectIgnored, tc.expectSubscribed, tc.expectDeleted, tc.expectInvalid)
+			assertSubscriptionText(t, getTextResult(t, result).Text, tc.expectIgnored, tc.expectSubscribed, tc.expectDeleted, tc.expectInvalid)
 		})
 	}
 }

@@ -401,6 +401,34 @@ const (
 	NotificationActionDelete = "delete"
 )
 
+func processSubscriptionResponse(ctx context.Context, resp *github.Response, result any, apiErr error, action, entityLabel, deleteMsg string) (*mcp.CallToolResult, error) {
+	if apiErr != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx,
+			fmt.Sprintf("failed to %s %s subscription", action, entityLabel),
+			resp,
+			apiErr,
+		), nil
+	}
+	if resp != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
+
+	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		body, _ := io.ReadAll(resp.Body)
+		return mcp.NewToolResultError(fmt.Sprintf("failed to %s %s subscription: %s", action, entityLabel, string(body))), nil
+	}
+
+	if result == nil {
+		return mcp.NewToolResultText(deleteMsg), nil
+	}
+
+	r, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf(errMarshalFmt, err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
 func executeNotificationAction(ctx context.Context, client *github.Client, notificationID, action string) (*mcp.CallToolResult, error) {
 	var (
 		resp   *github.Response
@@ -421,29 +449,7 @@ func executeNotificationAction(ctx context.Context, client *github.Client, notif
 		return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
 	}
 
-	if apiErr != nil {
-		return ghErrors.NewGitHubAPIErrorResponse(ctx,
-			fmt.Sprintf("failed to %s notification subscription", action),
-			resp,
-			apiErr,
-		), nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(resp.Body)
-		return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
-	}
-
-	if action == NotificationActionDelete {
-		return mcp.NewToolResultText("Notification subscription deleted"), nil
-	}
-
-	r, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf(errMarshalFmt, err)
-	}
-	return mcp.NewToolResultText(string(r)), nil
+	return processSubscriptionResponse(ctx, resp, result, apiErr, action, "notification", "Notification subscription deleted")
 }
 
 // ManageNotificationSubscription creates a tool to manage a notification subscription (ignore, watch, delete)
@@ -509,31 +515,7 @@ func executeRepoSubscriptionAction(ctx context.Context, client *github.Client, o
 		return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
 	}
 
-	if apiErr != nil {
-		return ghErrors.NewGitHubAPIErrorResponse(ctx,
-			fmt.Sprintf("failed to %s repository subscription", action),
-			resp,
-			apiErr,
-		), nil
-	}
-	if resp != nil {
-		defer func() { _ = resp.Body.Close() }()
-	}
-
-	if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		body, _ := io.ReadAll(resp.Body)
-		return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
-	}
-
-	if action == RepositorySubscriptionActionDelete {
-		return mcp.NewToolResultText("Repository subscription deleted"), nil
-	}
-
-	r, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf(errMarshalFmt, err)
-	}
-	return mcp.NewToolResultText(string(r)), nil
+	return processSubscriptionResponse(ctx, resp, result, apiErr, action, "repository", "Repository subscription deleted")
 }
 
 // ManageRepositoryNotificationSubscription creates a tool to manage a repository notification subscription (ignore, watch, delete)
