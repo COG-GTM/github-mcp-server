@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	testContentType     = "Content-Type"
-	testMIMEImagePNG    = "image/png"
-	testMIMETextMD      = "text/markdown"
-	testREADMEPath      = "README.md"
-	testRepoContent     = "# Test Repository\n\nThis is a test repository."
+	testContentType  = "Content-Type"
+	testMIMEImagePNG = "image/png"
+	testMIMETextMD   = "text/markdown"
+	testREADMEPath   = "README.md"
+	testRepoContent  = "# Test Repository\n\nThis is a test repository."
 )
 
 func Test_repositoryResourceContentsHandler(t *testing.T) {
