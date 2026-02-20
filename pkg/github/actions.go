@@ -172,13 +172,21 @@ func ListWorkflowRuns(getClient GetClientFn, t translations.TranslationHelperFun
 		newListWorkflowRunsHandler(getClient)
 }
 
+func parseOwnerRepo(request mcp.CallToolRequest) (string, string, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", err
+	}
+	return owner, repo, nil
+}
+
 func newListWorkflowRunsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		owner, err := RequiredParam[string](request, "owner")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		repo, err := RequiredParam[string](request, "repo")
+		owner, repo, err := parseOwnerRepo(request)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -229,24 +237,17 @@ func parseListWorkflowRunsParams(request mcp.CallToolRequest) (*github.ListWorkf
 	if err != nil {
 		return nil, err
 	}
-	perPage, err := OptionalIntParam(request, "per_page")
-	if err != nil {
-		return nil, err
-	}
-	page, err := OptionalIntParam(request, "page")
+	pagination, err := parsePaginationParams(request)
 	if err != nil {
 		return nil, err
 	}
 
 	return &github.ListWorkflowRunsOptions{
-		Actor:  actor,
-		Branch: branch,
-		Event:  event,
-		Status: status,
-		ListOptions: github.ListOptions{
-			PerPage: perPage,
-			Page:    page,
-		},
+		Actor:       actor,
+		Branch:      branch,
+		Event:       event,
+		Status:      status,
+		ListOptions: *pagination,
 	}, nil
 }
 
@@ -304,11 +305,7 @@ func dispatchWorkflow(ctx context.Context, client *github.Client, owner, repo, w
 
 func newRunWorkflowHandler(getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		owner, err := RequiredParam[string](request, "owner")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		repo, err := RequiredParam[string](request, "repo")
+		owner, repo, err := parseOwnerRepo(request)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -519,31 +516,20 @@ func parseListWorkflowJobsParams(request mcp.CallToolRequest) (*github.ListWorkf
 	if err != nil {
 		return nil, err
 	}
-	perPage, err := OptionalIntParam(request, "per_page")
-	if err != nil {
-		return nil, err
-	}
-	page, err := OptionalIntParam(request, "page")
+	pagination, err := parsePaginationParams(request)
 	if err != nil {
 		return nil, err
 	}
 
 	return &github.ListWorkflowJobsOptions{
-		Filter: filter,
-		ListOptions: github.ListOptions{
-			PerPage: perPage,
-			Page:    page,
-		},
+		Filter:      filter,
+		ListOptions: *pagination,
 	}, nil
 }
 
 func newListWorkflowJobsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		owner, err := RequiredParam[string](request, "owner")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		repo, err := RequiredParam[string](request, "repo")
+		owner, repo, err := parseOwnerRepo(request)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
@@ -630,11 +616,7 @@ type jobLogsParams struct {
 }
 
 func parseJobLogsParams(request mcp.CallToolRequest) (*jobLogsParams, error) {
-	owner, err := RequiredParam[string](request, "owner")
-	if err != nil {
-		return nil, err
-	}
-	repo, err := RequiredParam[string](request, "repo")
+	owner, repo, err := parseOwnerRepo(request)
 	if err != nil {
 		return nil, err
 	}
@@ -1106,11 +1088,7 @@ func parsePaginationParams(request mcp.CallToolRequest) (*github.ListOptions, er
 
 func newListWorkflowRunArtifactsHandler(getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		owner, err := RequiredParam[string](request, "owner")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		repo, err := RequiredParam[string](request, "repo")
+		owner, repo, err := parseOwnerRepo(request)
 		if err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
 		}
