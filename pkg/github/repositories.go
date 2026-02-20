@@ -19,6 +19,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	fmtErrGetGitHubClient   = "failed to get GitHub client: %w"
+	fmtErrCreateResourceURI = "failed to create resource URI: %w"
+	repoURIScheme           = "repo://"
+)
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
@@ -65,7 +71,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
@@ -94,7 +100,33 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 		}
 }
 
+func requiredOwnerRepo(request mcp.CallToolRequest) (owner, repo string, err error) {
+	owner, err = RequiredParam[string](request, "owner")
+	if err != nil {
+		return
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	return
+}
+
 // ListCommits creates a tool to get commits of a branch in a repository.
+func listCommitsParseParams(request mcp.CallToolRequest) (owner, repo, sha, author string, pagination PaginationParams, err error) {
+	owner, repo, err = requiredOwnerRepo(request)
+	if err != nil {
+		return
+	}
+	sha, err = OptionalParam[string](request, "sha")
+	if err != nil {
+		return
+	}
+	author, err = OptionalParam[string](request, "author")
+	if err != nil {
+		return
+	}
+	pagination, err = OptionalPaginationParams(request)
+	return
+}
+
 func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_commits",
 			mcp.WithDescription(t("TOOL_LIST_COMMITS_DESCRIPTION", "Get list of commits of a branch in a GitHub repository. Returns at least 30 results per page by default, but can return more if specified using the perPage parameter (up to 100).")),
@@ -119,28 +151,11 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
+			owner, repo, sha, author, pag, err := listCommitsParseParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := OptionalParam[string](request, "sha")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			author, err := OptionalParam[string](request, "author")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			// Set default perPage to 30 if not provided
-			perPage := pagination.perPage
+			perPage := pag.perPage
 			if perPage == 0 {
 				perPage = 30
 			}
@@ -148,14 +163,14 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 				SHA:    sha,
 				Author: author,
 				ListOptions: github.ListOptions{
-					Page:    pagination.page,
+					Page:    pag.page,
 					PerPage: perPage,
 				},
 			}
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
 			if err != nil {
@@ -225,7 +240,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			branches, resp, err := client.Repositories.ListBranches(ctx, owner, repo, opts)
@@ -339,7 +354,7 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			// Create or update the file
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			fileContent, resp, err := client.Repositories.CreateFile(ctx, owner, repo, path, opts)
 			if err != nil {
@@ -417,7 +432,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			createdRepo, resp, err := client.Repositories.Create(ctx, "", repo)
 			if err != nil {
@@ -447,6 +462,133 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 }
 
 // GetFileContents creates a tool to get the contents of a file or directory from a GitHub repository.
+func getFileContentsParseParams(request mcp.CallToolRequest) (owner, repo, path, ref, sha string, err error) {
+	owner, repo, err = requiredOwnerRepo(request)
+	if err != nil {
+		return
+	}
+	path, err = RequiredParam[string](request, "path")
+	if err != nil {
+		return
+	}
+	ref, err = OptionalParam[string](request, "ref")
+	if err != nil {
+		return
+	}
+	sha, err = OptionalParam[string](request, "sha")
+	return
+}
+
+func fetchPRHeadSHA(ctx context.Context, getClient GetClientFn, owner, repo, prNumber string) (string, error) {
+	githubClient, err := getClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf(fmtErrGetGitHubClient, err)
+	}
+	prNum, err := strconv.Atoi(prNumber)
+	if err != nil {
+		return "", fmt.Errorf("invalid pull request number: %w", err)
+	}
+	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pull request: %w", err)
+	}
+	return pr.GetHead().GetSHA(), nil
+}
+
+func resolvePRRef(ctx context.Context, getClient GetClientFn, owner, repo, ref string) (resolvedSHA, resolvedRef string, err error) {
+	prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
+	if len(prNumber) == 0 {
+		return "", ref, nil
+	}
+	sha, err := fetchPRHeadSHA(ctx, getClient, owner, repo, prNumber)
+	if err != nil {
+		return "", "", err
+	}
+	return sha, "", nil
+}
+
+func buildResourceURI(owner, repo, sha, ref, path string) (string, error) {
+	switch {
+	case sha != "":
+		return url.JoinPath(repoURIScheme, owner, repo, "sha", sha, "contents", path)
+	case ref != "":
+		return url.JoinPath(repoURIScheme, owner, repo, ref, "contents", path)
+	default:
+		return url.JoinPath(repoURIScheme, owner, repo, "contents", path)
+	}
+}
+
+func newResourceContents(uri, mimeType string, content []byte) mcp.ResourceContents {
+	if strings.HasPrefix(mimeType, "application") || strings.HasPrefix(mimeType, "text") {
+		return mcp.TextResourceContents{
+			URI:      uri,
+			MIMEType: mimeType,
+			Text:     string(content),
+		}
+	}
+	return mcp.BlobResourceContents{
+		URI:      uri,
+		MIMEType: mimeType,
+		Blob:     base64.StdEncoding.EncodeToString(content),
+	}
+}
+
+func fetchRawFileContent(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path, sha, ref string, rawOpts *raw.ContentOpts) (*mcp.CallToolResult, error) {
+	rawClient, err := getRawClient(ctx)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+	}
+	resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get raw repository content"), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return mcp.NewToolResultError("failed to read response body"), nil
+	}
+	contentType := resp.Header.Get("Content-Type")
+
+	resourceURI, err := buildResourceURI(owner, repo, sha, ref, path)
+	if err != nil {
+		return nil, fmt.Errorf(fmtErrCreateResourceURI, err)
+	}
+
+	rc := newResourceContents(resourceURI, contentType, body)
+	if _, ok := rc.(mcp.TextResourceContents); ok {
+		return mcp.NewToolResultResource("successfully downloaded text file", rc), nil
+	}
+	return mcp.NewToolResultResource("successfully downloaded binary file", rc), nil
+}
+
+func fetchDirContents(ctx context.Context, client *github.Client, owner, repo, path, ref string) (*mcp.CallToolResult, error) {
+	opts := &github.RepositoryContentGetOptions{Ref: ref}
+	_, dirContent, resp, err := client.Repositories.GetContents(ctx, owner, repo, path, opts)
+	if err != nil {
+		return mcp.NewToolResultError("failed to get file contents"), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return mcp.NewToolResultError("failed to read response body"), nil
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
+	}
+
+	r, err := json.Marshal(dirContent)
+	if err != nil {
+		return mcp.NewToolResultError("failed to marshal response"), nil
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
 func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_file_contents",
 			mcp.WithDescription(t("TOOL_GET_FILE_CONTENTS_DESCRIPTION", "Get the contents of a file or directory from a GitHub repository")),
@@ -474,109 +616,27 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
+			owner, repo, path, ref, sha, err := getFileContentsParseParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			path, err := RequiredParam[string](request, "path")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			ref, err := OptionalParam[string](request, "ref")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := OptionalParam[string](request, "sha")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			rawOpts := &raw.ContentOpts{}
 
 			if strings.HasPrefix(ref, "refs/pull/") {
-				prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
-				if len(prNumber) > 0 {
-					// fetch the PR from the API to get the latest commit and use SHA
-					githubClient, err := getClient(ctx)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-					}
-					prNum, err := strconv.Atoi(prNumber)
-					if err != nil {
-						return nil, fmt.Errorf("invalid pull request number: %w", err)
-					}
-					pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get pull request: %w", err)
-					}
-					sha = pr.GetHead().GetSHA()
-					ref = ""
+				sha, ref, err = resolvePRRef(ctx, getClient, owner, repo, ref)
+				if err != nil {
+					return nil, err
 				}
 			}
 
-			rawOpts.SHA = sha
-			rawOpts.Ref = ref
+			rawOpts := &raw.ContentOpts{SHA: sha, Ref: ref}
 
-			// If the path is (most likely) not to be a directory, we will first try to get the raw content from the GitHub raw content API.
 			if path != "" && !strings.HasSuffix(path, "/") {
-
-				rawClient, err := getRawClient(ctx)
+				result, err := fetchRawFileContent(ctx, getRawClient, owner, repo, path, sha, ref, rawOpts)
 				if err != nil {
-					return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
+					return nil, err
 				}
-				resp, err := rawClient.GetRawContent(ctx, owner, repo, path, rawOpts)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get raw repository content"), nil
-				}
-				defer func() {
-					_ = resp.Body.Close()
-				}()
-
-				if resp.StatusCode == http.StatusOK {
-					// If the raw content is found, return it directly
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return mcp.NewToolResultError("failed to read response body"), nil
-					}
-					contentType := resp.Header.Get("Content-Type")
-
-					var resourceURI string
-					switch {
-					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
-						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
-						}
-					}
-
-					if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-						return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-							URI:      resourceURI,
-							Text:     string(body),
-							MIMEType: contentType,
-						}), nil
-					}
-
-					return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-						URI:      resourceURI,
-						Blob:     base64.StdEncoding.EncodeToString(body),
-						MIMEType: contentType,
-					}), nil
-
+				if result != nil {
+					return result, nil
 				}
 			}
 
@@ -589,26 +649,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 				ref = sha
 			}
 			if strings.HasSuffix(path, "/") {
-				opts := &github.RepositoryContentGetOptions{Ref: ref}
-				_, dirContent, resp, err := client.Repositories.GetContents(ctx, owner, repo, path, opts)
-				if err != nil {
-					return mcp.NewToolResultError("failed to get file contents"), nil
-				}
-				defer func() { _ = resp.Body.Close() }()
-
-				if resp.StatusCode != 200 {
-					body, err := io.ReadAll(resp.Body)
-					if err != nil {
-						return mcp.NewToolResultError("failed to read response body"), nil
-					}
-					return mcp.NewToolResultError(fmt.Sprintf("failed to get file contents: %s", string(body))), nil
-				}
-
-				r, err := json.Marshal(dirContent)
-				if err != nil {
-					return mcp.NewToolResultError("failed to marshal response"), nil
-				}
-				return mcp.NewToolResultText(string(r)), nil
+				return fetchDirContents(ctx, client, owner, repo, path, ref)
 			}
 			return mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."), nil
 		}
@@ -655,7 +696,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			forkedRepo, resp, err := client.Repositories.CreateFork(ctx, owner, repo, opts)
 			if err != nil {
@@ -748,7 +789,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -909,7 +950,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the source branch SHA
@@ -1037,7 +1078,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -1177,7 +1218,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opts)
@@ -1244,7 +1285,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// First get the tag reference
