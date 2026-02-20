@@ -149,6 +149,58 @@ func Test_ListNotifications(t *testing.T) {
 	}
 }
 
+const errInvalidThreadIDFormat = "invalid threadID format"
+
+type errorCheck struct {
+	condition bool
+	expected  string
+}
+
+func assertErrorContains(t *testing.T, text string, checks []errorCheck) {
+	t.Helper()
+	for _, c := range checks {
+		if c.condition {
+			assert.Contains(t, text, c.expected)
+			return
+		}
+	}
+	assert.Contains(t, text, "error")
+}
+
+func assertSubscriptionText(t *testing.T, text string, expectIgnored, expectSubscribed *bool, expectDeleted, expectInvalid bool) {
+	t.Helper()
+	if expectIgnored != nil || expectSubscribed != nil {
+		var returned github.Subscription
+		err := json.Unmarshal([]byte(text), &returned)
+		require.NoError(t, err)
+		if expectIgnored != nil {
+			assert.Equal(t, *expectIgnored, *returned.Ignored)
+		}
+		if expectSubscribed != nil {
+			assert.Equal(t, *expectSubscribed, *returned.Subscribed)
+		}
+	}
+	if expectDeleted {
+		assert.Contains(t, text, "deleted")
+	}
+	if expectInvalid {
+		assert.Contains(t, text, "Invalid action")
+	}
+}
+
+func assertDismissText(t *testing.T, text string, expectRead, expectDone, expectInvalid bool) {
+	t.Helper()
+	if expectRead {
+		assert.Contains(t, text, "Notification marked as read")
+	}
+	if expectDone {
+		assert.Contains(t, text, "Notification marked as done")
+	}
+	if expectInvalid {
+		assert.Contains(t, text, errInvalidThreadIDFormat)
+	}
+}
+
 func Test_ManageNotificationSubscription(t *testing.T) {
 	// Verify tool definition and schema
 	mockClient := github.NewClient(nil)
@@ -257,32 +309,15 @@ func Test_ManageNotificationSubscription(t *testing.T) {
 			if tc.expectError {
 				require.NoError(t, err)
 				require.NotNil(t, result)
-				text := getTextResult(t, result).Text
-				switch {
-				case tc.requestArgs["notificationID"] == nil:
-					assert.Contains(t, text, "missing required parameter: notificationID")
-				case tc.requestArgs["action"] == nil:
-					assert.Contains(t, text, "missing required parameter: action")
-				default:
-					assert.Contains(t, text, "error")
-				}
+				assertErrorContains(t, getTextResult(t, result).Text, []errorCheck{
+					{tc.requestArgs["notificationID"] == nil, "missing required parameter: notificationID"},
+					{tc.requestArgs["action"] == nil, "missing required parameter: action"},
+				})
 				return
 			}
 
 			require.NoError(t, err)
-			textContent := getTextResult(t, result)
-			if tc.expectIgnored != nil {
-				var returned github.Subscription
-				err = json.Unmarshal([]byte(textContent.Text), &returned)
-				require.NoError(t, err)
-				assert.Equal(t, *tc.expectIgnored, *returned.Ignored)
-			}
-			if tc.expectDeleted {
-				assert.Contains(t, textContent.Text, "deleted")
-			}
-			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
-			}
+			assertSubscriptionText(t, getTextResult(t, result).Text, tc.expectIgnored, nil, tc.expectDeleted, tc.expectInvalid)
 		})
 	}
 }
@@ -413,39 +448,16 @@ func Test_ManageRepositoryNotificationSubscription(t *testing.T) {
 			if tc.expectError {
 				require.NoError(t, err)
 				require.NotNil(t, result)
-				text := getTextResult(t, result).Text
-				switch {
-				case tc.requestArgs["owner"] == nil:
-					assert.Contains(t, text, "missing required parameter: owner")
-				case tc.requestArgs["repo"] == nil:
-					assert.Contains(t, text, "missing required parameter: repo")
-				case tc.requestArgs["action"] == nil:
-					assert.Contains(t, text, "missing required parameter: action")
-				default:
-					assert.Contains(t, text, "error")
-				}
+				assertErrorContains(t, getTextResult(t, result).Text, []errorCheck{
+					{tc.requestArgs["owner"] == nil, "missing required parameter: owner"},
+					{tc.requestArgs["repo"] == nil, "missing required parameter: repo"},
+					{tc.requestArgs["action"] == nil, "missing required parameter: action"},
+				})
 				return
 			}
 
 			require.NoError(t, err)
-			textContent := getTextResult(t, result)
-			if tc.expectIgnored != nil || tc.expectSubscribed != nil {
-				var returned github.Subscription
-				err = json.Unmarshal([]byte(textContent.Text), &returned)
-				require.NoError(t, err)
-				if tc.expectIgnored != nil {
-					assert.Equal(t, *tc.expectIgnored, *returned.Ignored)
-				}
-				if tc.expectSubscribed != nil {
-					assert.Equal(t, *tc.expectSubscribed, *returned.Subscribed)
-				}
-			}
-			if tc.expectDeleted {
-				assert.Contains(t, textContent.Text, "deleted")
-			}
-			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "Invalid action")
-			}
+			assertSubscriptionText(t, getTextResult(t, result).Text, tc.expectIgnored, tc.expectSubscribed, tc.expectDeleted, tc.expectInvalid)
 		})
 	}
 }
@@ -503,7 +515,7 @@ func Test_DismissNotification(t *testing.T) {
 			expectDone:  true,
 		},
 		{
-			name:         "invalid threadID format",
+			name:         errInvalidThreadIDFormat,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]interface{}{
 				"threadID": "notanumber",
@@ -547,37 +559,19 @@ func Test_DismissNotification(t *testing.T) {
 			result, err := handler(context.Background(), request)
 
 			if tc.expectError {
-				// The tool returns a ToolResultError with a specific message
 				require.NoError(t, err)
 				require.NotNil(t, result)
-				text := getTextResult(t, result).Text
-				switch {
-				case tc.requestArgs["threadID"] == nil:
-					assert.Contains(t, text, "missing required parameter: threadID")
-				case tc.requestArgs["state"] == nil:
-					assert.Contains(t, text, "missing required parameter: state")
-				case tc.name == "invalid threadID format":
-					assert.Contains(t, text, "invalid threadID format")
-				case tc.name == "invalid state value":
-					assert.Contains(t, text, "Invalid state. Must be one of: read, done.")
-				default:
-					// fallback for other errors
-					assert.Contains(t, text, "error")
-				}
+				assertErrorContains(t, getTextResult(t, result).Text, []errorCheck{
+					{tc.requestArgs["threadID"] == nil, "missing required parameter: threadID"},
+					{tc.requestArgs["state"] == nil, "missing required parameter: state"},
+					{tc.name == errInvalidThreadIDFormat, errInvalidThreadIDFormat},
+					{tc.name == "invalid state value", "Invalid state. Must be one of: read, done."},
+				})
 				return
 			}
 
 			require.NoError(t, err)
-			textContent := getTextResult(t, result)
-			if tc.expectRead {
-				assert.Contains(t, textContent.Text, "Notification marked as read")
-			}
-			if tc.expectDone {
-				assert.Contains(t, textContent.Text, "Notification marked as done")
-			}
-			if tc.expectInvalid {
-				assert.Contains(t, textContent.Text, "invalid threadID format")
-			}
+			assertDismissText(t, getTextResult(t, result).Text, tc.expectRead, tc.expectDone, tc.expectInvalid)
 		})
 	}
 }
