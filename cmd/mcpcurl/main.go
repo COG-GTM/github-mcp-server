@@ -203,106 +203,118 @@ func main() {
 
 // addCommandFromTool creates a cobra command from a tool schema
 func addCommandFromTool(toolsCmd *cobra.Command, tool *Tool, prettyPrint bool) {
-	// Create command from tool
 	cmd := &cobra.Command{
 		Use:   tool.Name,
 		Short: tool.Description,
 		Run: func(cmd *cobra.Command, _ []string) {
-			// Build a map of arguments from flags
-			arguments, err := buildArgumentsMap(cmd, tool)
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to build arguments map: %v\n", err)
-				return
-			}
-
-			jsonData, err := buildJSONRPCRequest("tools/call", tool.Name, arguments)
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to build JSONRPC request: %v\n", err)
-				return
-			}
-
-			// Execute the server command
-			serverCmd, err := cmd.Flags().GetString("stdio-server-cmd")
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "failed to get stdio-server-cmd: %v\n", err)
-				return
-			}
-			response, err := executeServerCommand(serverCmd, jsonData)
-			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "error executing server command: %v\n", err)
-				return
-			}
-			if err := printResponse(response, prettyPrint); err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "error printing response: %v\n", err)
-				return
-			}
+			executeToolCommand(cmd, tool, prettyPrint)
 		},
 	}
 
-	// Initialize viper for this command
-	viperInit := func() {
-		viper.Reset()
-		viper.AutomaticEnv()
-		viper.SetEnvPrefix(strings.ToUpper(tool.Name))
-		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	initViperForTool(tool)
+	registerToolFlags(cmd, tool)
+	toolsCmd.AddCommand(cmd)
+}
+
+func executeToolCommand(cmd *cobra.Command, tool *Tool, prettyPrint bool) {
+	arguments, err := buildArgumentsMap(cmd, tool)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to build arguments map: %v\n", err)
+		return
 	}
 
-	// We'll call the init function directly instead of with cobra.OnInitialize
-	// to avoid conflicts between commands
-	viperInit()
+	jsonData, err := buildJSONRPCRequest("tools/call", tool.Name, arguments)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to build JSONRPC request: %v\n", err)
+		return
+	}
 
-	// Add flags based on schema properties
+	serverCmd, err := cmd.Flags().GetString("stdio-server-cmd")
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "failed to get stdio-server-cmd: %v\n", err)
+		return
+	}
+	response, err := executeServerCommand(serverCmd, jsonData)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error executing server command: %v\n", err)
+		return
+	}
+	if err := printResponse(response, prettyPrint); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error printing response: %v\n", err)
+		return
+	}
+}
+
+func initViperForTool(tool *Tool) {
+	viper.Reset()
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix(strings.ToUpper(tool.Name))
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+}
+
+func registerToolFlags(cmd *cobra.Command, tool *Tool) {
+	hasEnum := false
 	for name, prop := range tool.InputSchema.Properties {
 		isRequired := slices.Contains(tool.InputSchema.Required, name)
-
-		// Enhance description to indicate if parameter is optional
 		description := prop.Description
 		if !isRequired {
 			description += " (optional)"
 		}
 
-		switch prop.Type {
-		case "string":
-			cmd.Flags().String(name, "", description)
-			if len(prop.Enum) > 0 {
-				// Add validation in PreRun for enum values
-				cmd.PreRunE = func(cmd *cobra.Command, _ []string) error {
-					for flagName, property := range tool.InputSchema.Properties {
-						if len(property.Enum) > 0 {
-							value, _ := cmd.Flags().GetString(flagName)
-							if value != "" && !slices.Contains(property.Enum, value) {
-								return fmt.Errorf("%s must be one of: %s", flagName, strings.Join(property.Enum, ", "))
-							}
-						}
-					}
-					return nil
-				}
-			}
-		case "number":
-			cmd.Flags().Float64(name, 0, description)
-		case "boolean":
-			cmd.Flags().Bool(name, false, description)
-		case "array":
-			if prop.Items != nil {
-				switch prop.Items.Type {
-				case "string":
-					cmd.Flags().StringSlice(name, []string{}, description)
-				case "object":
-					cmd.Flags().String(name+"-json", "", description+" (provide as JSON array)")
-				}
-			}
+		registerFlagByType(cmd, name, prop, description)
+		if prop.Type == "string" && len(prop.Enum) > 0 {
+			hasEnum = true
 		}
 
 		if isRequired {
 			_ = cmd.MarkFlagRequired(name)
 		}
-
-		// Bind flag to viper
 		_ = viper.BindPFlag(name, cmd.Flags().Lookup(name))
 	}
 
-	// Add command to root
-	toolsCmd.AddCommand(cmd)
+	if hasEnum {
+		cmd.PreRunE = buildEnumValidator(tool)
+	}
+}
+
+func registerFlagByType(cmd *cobra.Command, name string, prop Property, description string) {
+	switch prop.Type {
+	case "string":
+		cmd.Flags().String(name, "", description)
+	case "number":
+		cmd.Flags().Float64(name, 0, description)
+	case "boolean":
+		cmd.Flags().Bool(name, false, description)
+	case "array":
+		registerArrayFlag(cmd, name, prop, description)
+	}
+}
+
+func registerArrayFlag(cmd *cobra.Command, name string, prop Property, description string) {
+	if prop.Items == nil {
+		return
+	}
+	switch prop.Items.Type {
+	case "string":
+		cmd.Flags().StringSlice(name, []string{}, description)
+	case "object":
+		cmd.Flags().String(name+"-json", "", description+" (provide as JSON array)")
+	}
+}
+
+func buildEnumValidator(tool *Tool) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, _ []string) error {
+		for flagName, property := range tool.InputSchema.Properties {
+			if len(property.Enum) == 0 {
+				continue
+			}
+			value, _ := cmd.Flags().GetString(flagName)
+			if value != "" && !slices.Contains(property.Enum, value) {
+				return fmt.Errorf("%s must be one of: %s", flagName, strings.Join(property.Enum, ", "))
+			}
+		}
+		return nil
+	}
 }
 
 // buildArgumentsMap extracts flag values into a map of arguments
