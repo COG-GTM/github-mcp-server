@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testInvalidQuery = "invalid:query"
+
 func Test_SearchRepositories(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -113,7 +115,7 @@ func Test_SearchRepositories(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": testInvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search repositories",
@@ -268,7 +270,7 @@ func Test_SearchCode(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"q": "invalid:query",
+				"q": testInvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search code",
@@ -422,7 +424,7 @@ func Test_SearchUsers(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": testInvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search users",
@@ -549,7 +551,7 @@ func Test_SearchOrgs(t *testing.T) {
 				),
 			),
 			requestArgs: map[string]interface{}{
-				"query": "invalid:query",
+				"query": testInvalidQuery,
 			},
 			expectError:    true,
 			expectedErrMsg: "failed to search orgs",

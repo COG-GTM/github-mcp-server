@@ -18,6 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testCopilotSWEAgentID = "copilot-swe-agent-id"
+	testCopilotSWEAgent   = "copilot-swe-agent"
+	testIssueID           = "test-issue-id"
+)
+
 func Test_GetIssue(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -1277,8 +1283,8 @@ func TestAssignCopilotToIssue(t *testing.T) {
 							"suggestedActors": map[string]any{
 								"nodes": []any{
 									map[string]any{
-										"id":         githubv4.ID("copilot-swe-agent-id"),
-										"login":      githubv4.String("copilot-swe-agent"),
+										"id":         githubv4.ID(testCopilotSWEAgentID),
+										"login":      githubv4.String(testCopilotSWEAgent),
 										"__typename": "Bot",
 									},
 								},
@@ -1307,7 +1313,7 @@ func TestAssignCopilotToIssue(t *testing.T) {
 					githubv4mock.DataResponse(map[string]any{
 						"repository": map[string]any{
 							"issue": map[string]any{
-								"id": githubv4.ID("test-issue-id"),
+								"id": githubv4.ID(testIssueID),
 								"assignees": map[string]any{
 									"nodes": []any{},
 								},
@@ -1322,8 +1328,8 @@ func TestAssignCopilotToIssue(t *testing.T) {
 						} `graphql:"replaceActorsForAssignable(input: $input)"`
 					}{},
 					ReplaceActorsForAssignableInput{
-						AssignableID: githubv4.ID("test-issue-id"),
-						ActorIDs:     []githubv4.ID{githubv4.ID("copilot-swe-agent-id")},
+						AssignableID: githubv4.ID(testIssueID),
+						ActorIDs:     []githubv4.ID{githubv4.ID(testCopilotSWEAgentID)},
 					},
 					nil,
 					githubv4mock.DataResponse(map[string]any{}),
@@ -1366,8 +1372,8 @@ func TestAssignCopilotToIssue(t *testing.T) {
 							"suggestedActors": map[string]any{
 								"nodes": []any{
 									map[string]any{
-										"id":         githubv4.ID("copilot-swe-agent-id"),
-										"login":      githubv4.String("copilot-swe-agent"),
+										"id":         githubv4.ID(testCopilotSWEAgentID),
+										"login":      githubv4.String(testCopilotSWEAgent),
 										"__typename": "Bot",
 									},
 								},
@@ -1396,7 +1402,7 @@ func TestAssignCopilotToIssue(t *testing.T) {
 					githubv4mock.DataResponse(map[string]any{
 						"repository": map[string]any{
 							"issue": map[string]any{
-								"id": githubv4.ID("test-issue-id"),
+								"id": githubv4.ID(testIssueID),
 								"assignees": map[string]any{
 									"nodes": []any{
 										map[string]any{
@@ -1418,11 +1424,11 @@ func TestAssignCopilotToIssue(t *testing.T) {
 						} `graphql:"replaceActorsForAssignable(input: $input)"`
 					}{},
 					ReplaceActorsForAssignableInput{
-						AssignableID: githubv4.ID("test-issue-id"),
+						AssignableID: githubv4.ID(testIssueID),
 						ActorIDs: []githubv4.ID{
 							githubv4.ID("existing-assignee-id"),
 							githubv4.ID("existing-assignee-id-2"),
-							githubv4.ID("copilot-swe-agent-id"),
+							githubv4.ID(testCopilotSWEAgentID),
 						},
 					},
 					nil,
@@ -1503,8 +1509,8 @@ func TestAssignCopilotToIssue(t *testing.T) {
 							"suggestedActors": map[string]any{
 								"nodes": []any{
 									map[string]any{
-										"id":         githubv4.ID("copilot-swe-agent-id"),
-										"login":      githubv4.String("copilot-swe-agent"),
+										"id":         githubv4.ID(testCopilotSWEAgentID),
+										"login":      githubv4.String(testCopilotSWEAgent),
 										"__typename": "Bot",
 									},
 								},
@@ -1533,7 +1539,7 @@ func TestAssignCopilotToIssue(t *testing.T) {
 					githubv4mock.DataResponse(map[string]any{
 						"repository": map[string]any{
 							"issue": map[string]any{
-								"id": githubv4.ID("test-issue-id"),
+								"id": githubv4.ID(testIssueID),
 								"assignees": map[string]any{
 									"nodes": []any{},
 								},
@@ -1548,8 +1554,8 @@ func TestAssignCopilotToIssue(t *testing.T) {
 						} `graphql:"replaceActorsForAssignable(input: $input)"`
 					}{},
 					ReplaceActorsForAssignableInput{
-						AssignableID: githubv4.ID("test-issue-id"),
-						ActorIDs:     []githubv4.ID{githubv4.ID("copilot-swe-agent-id")},
+						AssignableID: githubv4.ID(testIssueID),
+						ActorIDs:     []githubv4.ID{githubv4.ID(testCopilotSWEAgentID)},
 					},
 					nil,
 					githubv4mock.DataResponse(map[string]any{}),
