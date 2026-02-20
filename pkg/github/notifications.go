@@ -349,6 +349,23 @@ const (
 	NotificationActionDelete = "delete"
 )
 
+// executeThreadSubscriptionAction executes the appropriate API call for a notification thread subscription action.
+func executeThreadSubscriptionAction(ctx context.Context, client *github.Client, notificationID, action string) (any, *github.Response, error) {
+	switch action {
+	case NotificationActionIgnore:
+		sub := &github.Subscription{Ignored: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionWatch:
+		sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
+		return client.Activity.SetThreadSubscription(ctx, notificationID, sub)
+	case NotificationActionDelete:
+		resp, err := client.Activity.DeleteThreadSubscription(ctx, notificationID)
+		return nil, resp, err
+	default:
+		return nil, nil, fmt.Errorf("invalid action %q: must be one of: ignore, watch, delete", action)
+	}
+}
+
 // ManageNotificationSubscription creates a tool to manage a notification subscription (ignore, watch, delete)
 func ManageNotificationSubscription(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("manage_notification_subscription",
@@ -382,25 +399,11 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var (
-				resp   *github.Response
-				result any
-				apiErr error
-			)
-
-			switch action {
-			case NotificationActionIgnore:
-				sub := &github.Subscription{Ignored: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionWatch:
-				sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetThreadSubscription(ctx, notificationID, sub)
-			case NotificationActionDelete:
-				resp, apiErr = client.Activity.DeleteThreadSubscription(ctx, notificationID)
-			default:
+			if action != NotificationActionIgnore && action != NotificationActionWatch && action != NotificationActionDelete {
 				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
 			}
 
+			result, resp, apiErr := executeThreadSubscriptionAction(ctx, client, notificationID, action)
 			if apiErr != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					fmt.Sprintf("failed to %s notification subscription", action),
@@ -416,7 +419,6 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 			}
 
 			if action == NotificationActionDelete {
-				// Special case for delete as there is no response body
 				return mcp.NewToolResultText("Notification subscription deleted"), nil
 			}
 
