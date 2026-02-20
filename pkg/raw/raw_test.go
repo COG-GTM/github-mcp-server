@@ -11,6 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testPathReadme   = "README.md"
+	testContentPlain = "text/plain"
+	testBodyFile     = "# Test file"
+)
+
 func TestGetRawContent(t *testing.T) {
 	base, _ := url.Parse("https://raw.example.com/")
 
@@ -28,37 +34,37 @@ func TestGetRawContent(t *testing.T) {
 			name:    "HEAD fetch success",
 			pattern: GetRawReposContentsByOwnerByRepoByPath,
 			opts:    nil,
-			owner:   "octocat", repo: "hello", path: "README.md",
+			owner:   "octocat", repo: "hello", path: testPathReadme,
 			statusCode:  200,
-			contentType: "text/plain",
-			body:        "# Test file",
+			contentType: testContentPlain,
+			body:        testBodyFile,
 		},
 		{
 			name:    "branch fetch success",
 			pattern: GetRawReposContentsByOwnerByRepoByBranchByPath,
 			opts:    &ContentOpts{Ref: "refs/heads/main"},
-			owner:   "octocat", repo: "hello", path: "README.md",
+			owner:   "octocat", repo: "hello", path: testPathReadme,
 			statusCode:  200,
-			contentType: "text/plain",
-			body:        "# Test file",
+			contentType: testContentPlain,
+			body:        testBodyFile,
 		},
 		{
 			name:    "tag fetch success",
 			pattern: GetRawReposContentsByOwnerByRepoByTagByPath,
 			opts:    &ContentOpts{Ref: "refs/tags/v1.0.0"},
-			owner:   "octocat", repo: "hello", path: "README.md",
+			owner:   "octocat", repo: "hello", path: testPathReadme,
 			statusCode:  200,
-			contentType: "text/plain",
-			body:        "# Test file",
+			contentType: testContentPlain,
+			body:        testBodyFile,
 		},
 		{
 			name:    "sha fetch success",
 			pattern: GetRawReposContentsByOwnerByRepoBySHAByPath,
 			opts:    &ContentOpts{SHA: "abc123"},
-			owner:   "octocat", repo: "hello", path: "README.md",
+			owner:   "octocat", repo: "hello", path: testPathReadme,
 			statusCode:  200,
-			contentType: "text/plain",
-			body:        "# Test file",
+			contentType: testContentPlain,
+			body:        testBodyFile,
 		},
 		{
 			name:    "not found",
@@ -116,25 +122,25 @@ func TestUrlFromOpts(t *testing.T) {
 		{
 			name:  "no opts (HEAD)",
 			opts:  nil,
-			owner: "octocat", repo: "hello", path: "README.md",
+			owner: "octocat", repo: "hello", path: testPathReadme,
 			want: "https://raw.example.com/octocat/hello/HEAD/README.md",
 		},
 		{
 			name:  "ref branch",
 			opts:  &ContentOpts{Ref: "refs/heads/main"},
-			owner: "octocat", repo: "hello", path: "README.md",
+			owner: "octocat", repo: "hello", path: testPathReadme,
 			want: "https://raw.example.com/octocat/hello/refs/heads/main/README.md",
 		},
 		{
 			name:  "ref tag",
 			opts:  &ContentOpts{Ref: "refs/tags/v1.0.0"},
-			owner: "octocat", repo: "hello", path: "README.md",
+			owner: "octocat", repo: "hello", path: testPathReadme,
 			want: "https://raw.example.com/octocat/hello/refs/tags/v1.0.0/README.md",
 		},
 		{
 			name:  "sha",
 			opts:  &ContentOpts{SHA: "abc123"},
-			owner: "octocat", repo: "hello", path: "README.md",
+			owner: "octocat", repo: "hello", path: testPathReadme,
 			want: "https://raw.example.com/octocat/hello/abc123/README.md",
 		},
 	}

@@ -11,6 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	errResourceNotFound = "resource not found"
+	errNotFound         = "not found"
+	errCtxMissingTest   = "context does not contain GitHubCtxErrors"
+	errMutationFailed   = "mutation failed"
+)
+
 func TestGitHubErrorContext(t *testing.T) {
 	t.Run("API errors can be added to context and retrieved", func(t *testing.T) {
 		// Given a context with GitHub error tracking enabled
@@ -23,7 +30,7 @@ func TestGitHubErrorContext(t *testing.T) {
 				Status:     "404 Not Found",
 			},
 		}
-		originalErr := fmt.Errorf("resource not found")
+		originalErr := fmt.Errorf(errResourceNotFound)
 
 		// When we add an API error to the context
 		updatedCtx, err := NewGitHubAPIErrorToCtx(ctx, "failed to fetch resource", resp, originalErr)
@@ -38,7 +45,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		assert.Equal(t, "failed to fetch resource", apiError.Message)
 		assert.Equal(t, resp, apiError.Response)
 		assert.Equal(t, originalErr, apiError.Err)
-		assert.Equal(t, "failed to fetch resource: resource not found", apiError.Error())
+		assert.Equal(t, "failed to fetch resource: "+errResourceNotFound, apiError.Error())
 	})
 
 	t.Run("GraphQL errors can be added to context and retrieved", func(t *testing.T) {
@@ -71,7 +78,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		resp1 := &github.Response{Response: &http.Response{StatusCode: 404}}
 		resp2 := &github.Response{Response: &http.Response{StatusCode: 403}}
 
-		ctx, err := NewGitHubAPIErrorToCtx(ctx, "first error", resp1, fmt.Errorf("not found"))
+		ctx, err := NewGitHubAPIErrorToCtx(ctx, "first error", resp1, fmt.Errorf(errNotFound))
 		require.NoError(t, err)
 
 		ctx, err = NewGitHubAPIErrorToCtx(ctx, "second error", resp2, fmt.Errorf("forbidden"))
@@ -152,13 +159,13 @@ func TestGitHubErrorContext(t *testing.T) {
 
 		// Then it should return an error
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context does not contain GitHubCtxErrors")
+		assert.Contains(t, err.Error(), errCtxMissingTest)
 		assert.Nil(t, apiErrors)
 
 		// Same for GraphQL errors
 		gqlErrors, err := GetGitHubGraphQLErrors(ctx)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context does not contain GitHubCtxErrors")
+		assert.Contains(t, err.Error(), errCtxMissingTest)
 		assert.Nil(t, gqlErrors)
 	})
 
@@ -212,7 +219,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		// Given a context with GitHub error tracking enabled
 		ctx := ContextWithGitHubErrors(context.Background())
 
-		originalErr := fmt.Errorf("mutation failed")
+		originalErr := fmt.Errorf(errMutationFailed)
 
 		// When we create a GraphQL error response
 		result := NewGitHubGraphQLErrorResponse(ctx, "GraphQL call failed", originalErr)
@@ -254,7 +261,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		// And attempting to retrieve errors should still return an error since context wasn't initialized
 		apiErrors, err := GetGitHubAPIErrors(updatedCtx)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context does not contain GitHubCtxErrors")
+		assert.Contains(t, err.Error(), errCtxMissingTest)
 		assert.Nil(t, apiErrors)
 	})
 
@@ -283,13 +290,13 @@ func TestGitHubErrorContext(t *testing.T) {
 func TestGitHubErrorTypes(t *testing.T) {
 	t.Run("GitHubAPIError implements error interface", func(t *testing.T) {
 		resp := &github.Response{Response: &http.Response{StatusCode: 404}}
-		originalErr := fmt.Errorf("not found")
+		originalErr := fmt.Errorf(errNotFound)
 
 		apiErr := newGitHubAPIError("test message", resp, originalErr)
 
 		// Should implement error interface
 		var err error = apiErr
-		assert.Equal(t, "test message: not found", err.Error())
+		assert.Equal(t, "test message: "+errNotFound, err.Error())
 	})
 
 	t.Run("GitHubGraphQLError implements error interface", func(t *testing.T) {
@@ -330,12 +337,12 @@ func TestMiddlewareScenario(t *testing.T) {
 
 		simulateServiceCall2 := func(ctx context.Context) {
 			resp := &github.Response{Response: &http.Response{StatusCode: 404}}
-			_, err := NewGitHubAPIErrorToCtx(ctx, "resource not found", resp, fmt.Errorf("not found"))
+			_, err := NewGitHubAPIErrorToCtx(ctx, errResourceNotFound, resp, fmt.Errorf(errNotFound))
 			require.NoError(t, err)
 		}
 
 		simulateGraphQLCall := func(ctx context.Context) {
-			gqlErr := newGitHubGraphQLError("mutation failed", fmt.Errorf("invalid input"))
+			gqlErr := newGitHubGraphQLError(errMutationFailed, fmt.Errorf("invalid input"))
 			_, err := addGitHubGraphQLErrorToContext(ctx, gqlErr)
 			require.NoError(t, err)
 		}
@@ -371,9 +378,9 @@ func TestMiddlewareScenario(t *testing.T) {
 		// Verify all errors were captured
 		assert.Len(t, apiMessages, 2)
 		assert.Contains(t, apiMessages, "insufficient permissions")
-		assert.Contains(t, apiMessages, "resource not found")
+		assert.Contains(t, apiMessages, errResourceNotFound)
 
 		assert.Len(t, gqlMessages, 1)
-		assert.Contains(t, gqlMessages, "mutation failed")
+		assert.Contains(t, gqlMessages, errMutationFailed)
 	})
 }
