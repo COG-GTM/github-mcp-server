@@ -584,59 +584,34 @@ func SearchPullRequests(getClient GetClientFn, t translations.TranslationHelperF
 		}
 }
 
-// GetPullRequestFiles creates a tool to get the list of files changed in a pull request.
-func handleGetPullRequestFiles(ctx context.Context, getClient GetClientFn, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+type prFileParams struct {
+	owner      string
+	repo       string
+	pullNumber int
+	pagination PaginationParams
+}
+
+func parsePRFileParams(request mcp.CallToolRequest) (*prFileParams, error) {
 	owner, err := RequiredParam[string](request, "owner")
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, err
 	}
 	repo, err := RequiredParam[string](request, "repo")
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, err
 	}
 	pullNumber, err := RequiredInt(request, "pullNumber")
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, err
 	}
-	pagination, err := OptionalPaginationParams(request)
+	pg, err := OptionalPaginationParams(request)
 	if err != nil {
-		return mcp.NewToolResultError(err.Error()), nil
+		return nil, err
 	}
-
-	client, err := getClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-	}
-	opts := &github.ListOptions{
-		PerPage: pagination.perPage,
-		Page:    pagination.page,
-	}
-	files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
-	if err != nil {
-		return ghErrors.NewGitHubAPIErrorResponse(ctx,
-			"failed to get pull request files",
-			resp,
-			err,
-		), nil
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
-		}
-		return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
-	}
-
-	r, err := json.Marshal(files)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
-	return mcp.NewToolResultText(string(r)), nil
+	return &prFileParams{owner: owner, repo: repo, pullNumber: pullNumber, pagination: pg}, nil
 }
 
+// GetPullRequestFiles creates a tool to get the list of files changed in a pull request.
 func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request_files",
 			mcp.WithDescription(t("TOOL_GET_PULL_REQUEST_FILES_DESCRIPTION", "Get the files changed in a specific pull request.")),
@@ -659,7 +634,43 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			return handleGetPullRequestFiles(ctx, getClient, request)
+			params, err := parsePRFileParams(request)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+
+			client, err := getClient(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+			}
+			opts := &github.ListOptions{
+				PerPage: params.pagination.perPage,
+				Page:    params.pagination.page,
+			}
+			files, resp, err := client.PullRequests.ListFiles(ctx, params.owner, params.repo, params.pullNumber, opts)
+			if err != nil {
+				return ghErrors.NewGitHubAPIErrorResponse(ctx,
+					"failed to get pull request files",
+					resp,
+					err,
+				), nil
+			}
+			defer func() { _ = resp.Body.Close() }()
+
+			if resp.StatusCode != http.StatusOK {
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, fmt.Errorf("failed to read response body: %w", err)
+				}
+				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
+			}
+
+			r, err := json.Marshal(files)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal response: %w", err)
+			}
+
+			return mcp.NewToolResultText(string(r)), nil
 		}
 }
 
