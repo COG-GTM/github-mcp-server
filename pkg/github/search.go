@@ -168,6 +168,64 @@ type MinimalSearchUsersResult struct {
 	Items             []MinimalUser `json:"items"`
 }
 
+func toMinimalUser(user *github.User) (MinimalUser, bool) {
+	if user.Login == nil {
+		return MinimalUser{}, false
+	}
+	mu := MinimalUser{Login: *user.Login}
+	if user.ID != nil {
+		mu.ID = *user.ID
+	}
+	if user.HTMLURL != nil {
+		mu.ProfileURL = *user.HTMLURL
+	}
+	if user.AvatarURL != nil {
+		mu.AvatarURL = *user.AvatarURL
+	}
+	return mu, true
+}
+
+func toMinimalUsers(users []*github.User) []MinimalUser {
+	minimalUsers := make([]MinimalUser, 0, len(users))
+	for _, user := range users {
+		if mu, ok := toMinimalUser(user); ok {
+			minimalUsers = append(minimalUsers, mu)
+		}
+	}
+	return minimalUsers
+}
+
+func processUsersSearchResponse(result *github.UsersSearchResult, resp *github.Response, accountType string) (*mcp.CallToolResult, error) {
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
+	}
+
+	minimalUsers := toMinimalUsers(result.Users)
+	minimalResp := &MinimalSearchUsersResult{
+		TotalCount:        result.GetTotal(),
+		IncompleteResults: result.GetIncompleteResults(),
+		Items:             minimalUsers,
+	}
+	if result.Total != nil {
+		minimalResp.TotalCount = *result.Total
+	}
+	if result.IncompleteResults != nil {
+		minimalResp.IncompleteResults = *result.IncompleteResults
+	}
+
+	r, err := json.Marshal(minimalResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
+	return mcp.NewToolResultText(string(r)), nil
+}
+
 func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		query, err := RequiredParam[string](request, "query")
@@ -210,50 +268,8 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 				err,
 			), nil
 		}
-		defer func() { _ = resp.Body.Close() }()
 
-		if resp.StatusCode != 200 {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
-			}
-			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
-		}
-
-		minimalUsers := make([]MinimalUser, 0, len(result.Users))
-
-		for _, user := range result.Users {
-			if user.Login != nil {
-				mu := MinimalUser{Login: *user.Login}
-				if user.ID != nil {
-					mu.ID = *user.ID
-				}
-				if user.HTMLURL != nil {
-					mu.ProfileURL = *user.HTMLURL
-				}
-				if user.AvatarURL != nil {
-					mu.AvatarURL = *user.AvatarURL
-				}
-				minimalUsers = append(minimalUsers, mu)
-			}
-		}
-		minimalResp := &MinimalSearchUsersResult{
-			TotalCount:        result.GetTotal(),
-			IncompleteResults: result.GetIncompleteResults(),
-			Items:             minimalUsers,
-		}
-		if result.Total != nil {
-			minimalResp.TotalCount = *result.Total
-		}
-		if result.IncompleteResults != nil {
-			minimalResp.IncompleteResults = *result.IncompleteResults
-		}
-
-		r, err := json.Marshal(minimalResp)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal response: %w", err)
-		}
-		return mcp.NewToolResultText(string(r)), nil
+		return processUsersSearchResponse(result, resp, accountType)
 	}
 }
 
