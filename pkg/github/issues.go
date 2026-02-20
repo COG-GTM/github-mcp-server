@@ -19,8 +19,8 @@ import (
 
 const (
 	errGetGitHubClientFmt = "failed to get GitHub client: %w"
-	descRepoOwner        = "Repository owner"
-	descRepoName         = "Repository name"
+	descRepoOwner         = "Repository owner"
+	descRepoName          = "Repository name"
 )
 
 // GetIssue creates a tool to get details of a specific issue in a GitHub repository.
