@@ -399,6 +399,10 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
+			if action != NotificationActionIgnore && action != NotificationActionWatch && action != NotificationActionDelete {
+				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
+			}
+
 			result, resp, apiErr := executeThreadSubscriptionAction(ctx, client, notificationID, action)
 			if apiErr != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
