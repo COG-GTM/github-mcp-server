@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	testErrMissingRunID       = "missing required parameter run_id"
-	testErrMissingRunIDColon  = "missing required parameter: run_id"
+	testErrMissingRunID      = "missing required parameter run_id"
+	testErrMissingRunIDColon = "missing required parameter: run_id"
 )
 
 func Test_ListWorkflows(t *testing.T) {
