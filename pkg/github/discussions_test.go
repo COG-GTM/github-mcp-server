@@ -16,13 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testDiscussionURL     = "https://github.com/owner/repo/discussions/1"
+	errDiscussionNotFound = "discussion not found"
+)
+
 var (
 	discussionsGeneral = []map[string]any{
-		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
+		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": testDiscussionURL, "category": map[string]any{"name": "General"}},
 		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
 	}
 	discussionsAll = []map[string]any{
-		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
+		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": testDiscussionURL, "category": map[string]any{"name": "General"}},
 		{"number": 2, "title": "Discussion 2 title", "createdAt": "2023-02-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/2", "category": map[string]any{"name": "Questions"}},
 		{"number": 3, "title": "Discussion 3 title", "createdAt": "2023-03-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/3", "category": map[string]any{"name": "General"}},
 	}
@@ -228,14 +233,14 @@ func Test_GetDiscussion(t *testing.T) {
 					"number":    1,
 					"body":      "This is a test discussion",
 					"state":     "open",
-					"url":       "https://github.com/owner/repo/discussions/1",
+					"url":       testDiscussionURL,
 					"createdAt": "2025-04-25T12:00:00Z",
 					"category":  map[string]any{"name": "General"},
 				}},
 			}),
 			expectError: false,
 			expected: &github.Issue{
-				HTMLURL:   github.Ptr("https://github.com/owner/repo/discussions/1"),
+				HTMLURL:   github.Ptr(testDiscussionURL),
 				Number:    github.Ptr(1),
 				Body:      github.Ptr("This is a test discussion"),
 				State:     github.Ptr("open"),
@@ -248,10 +253,10 @@ func Test_GetDiscussion(t *testing.T) {
 			},
 		},
 		{
-			name:        "discussion not found",
-			response:    githubv4mock.ErrorResponse("discussion not found"),
+			name:        errDiscussionNotFound,
+			response:    githubv4mock.ErrorResponse(errDiscussionNotFound),
 			expectError: true,
-			errContains: "discussion not found",
+			errContains: errDiscussionNotFound,
 		},
 	}
 	for _, tc := range tests {
