@@ -2,6 +2,7 @@ package errors
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
@@ -30,7 +31,7 @@ func TestGitHubErrorContext(t *testing.T) {
 				Status:     "404 Not Found",
 			},
 		}
-		originalErr := fmt.Errorf(errResourceNotFound)
+		originalErr := errors.New(errResourceNotFound)
 
 		// When we add an API error to the context
 		updatedCtx, err := NewGitHubAPIErrorToCtx(ctx, "failed to fetch resource", resp, originalErr)
@@ -78,7 +79,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		resp1 := &github.Response{Response: &http.Response{StatusCode: 404}}
 		resp2 := &github.Response{Response: &http.Response{StatusCode: 403}}
 
-		ctx, err := NewGitHubAPIErrorToCtx(ctx, "first error", resp1, fmt.Errorf(errNotFound))
+		ctx, err := NewGitHubAPIErrorToCtx(ctx, "first error", resp1, errors.New(errNotFound))
 		require.NoError(t, err)
 
 		ctx, err = NewGitHubAPIErrorToCtx(ctx, "second error", resp2, fmt.Errorf("forbidden"))
@@ -219,7 +220,7 @@ func TestGitHubErrorContext(t *testing.T) {
 		// Given a context with GitHub error tracking enabled
 		ctx := ContextWithGitHubErrors(context.Background())
 
-		originalErr := fmt.Errorf(errMutationFailed)
+		originalErr := errors.New(errMutationFailed)
 
 		// When we create a GraphQL error response
 		result := NewGitHubGraphQLErrorResponse(ctx, "GraphQL call failed", originalErr)
@@ -290,7 +291,7 @@ func TestGitHubErrorContext(t *testing.T) {
 func TestGitHubErrorTypes(t *testing.T) {
 	t.Run("GitHubAPIError implements error interface", func(t *testing.T) {
 		resp := &github.Response{Response: &http.Response{StatusCode: 404}}
-		originalErr := fmt.Errorf(errNotFound)
+		originalErr := errors.New(errNotFound)
 
 		apiErr := newGitHubAPIError("test message", resp, originalErr)
 
@@ -337,7 +338,7 @@ func TestMiddlewareScenario(t *testing.T) {
 
 		simulateServiceCall2 := func(ctx context.Context) {
 			resp := &github.Response{Response: &http.Response{StatusCode: 404}}
-			_, err := NewGitHubAPIErrorToCtx(ctx, errResourceNotFound, resp, fmt.Errorf(errNotFound))
+			_, err := NewGitHubAPIErrorToCtx(ctx, errResourceNotFound, resp, errors.New(errNotFound))
 			require.NoError(t, err)
 		}
 
