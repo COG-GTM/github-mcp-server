@@ -134,6 +134,27 @@ func Test_GetPullRequest(t *testing.T) {
 	}
 }
 
+func assertPullRequestFields(t *testing.T, expected *github.PullRequest, returned github.PullRequest) {
+	t.Helper()
+	assert.Equal(t, *expected.Number, *returned.Number)
+	if expected.Title != nil {
+		assert.Equal(t, *expected.Title, *returned.Title)
+	}
+	if expected.Body != nil {
+		assert.Equal(t, *expected.Body, *returned.Body)
+	}
+	if expected.State != nil {
+		assert.Equal(t, *expected.State, *returned.State)
+	}
+	if expected.Base != nil && expected.Base.Ref != nil {
+		assert.NotNil(t, returned.Base)
+		assert.Equal(t, *expected.Base.Ref, *returned.Base.Ref)
+	}
+	if expected.MaintainerCanModify != nil {
+		assert.Equal(t, *expected.MaintainerCanModify, *returned.MaintainerCanModify)
+	}
+}
+
 func Test_UpdatePullRequest(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -288,30 +309,12 @@ func Test_UpdatePullRequest(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, result.IsError)
 
-			// Parse the result and get the text content
 			textContent := getTextResult(t, result)
 
-			// Unmarshal and verify the successful result
 			var returnedPR github.PullRequest
 			err = json.Unmarshal([]byte(textContent.Text), &returnedPR)
 			require.NoError(t, err)
-			assert.Equal(t, *tc.expectedPR.Number, *returnedPR.Number)
-			if tc.expectedPR.Title != nil {
-				assert.Equal(t, *tc.expectedPR.Title, *returnedPR.Title)
-			}
-			if tc.expectedPR.Body != nil {
-				assert.Equal(t, *tc.expectedPR.Body, *returnedPR.Body)
-			}
-			if tc.expectedPR.State != nil {
-				assert.Equal(t, *tc.expectedPR.State, *returnedPR.State)
-			}
-			if tc.expectedPR.Base != nil && tc.expectedPR.Base.Ref != nil {
-				assert.NotNil(t, returnedPR.Base)
-				assert.Equal(t, *tc.expectedPR.Base.Ref, *returnedPR.Base.Ref)
-			}
-			if tc.expectedPR.MaintainerCanModify != nil {
-				assert.Equal(t, *tc.expectedPR.MaintainerCanModify, *returnedPR.MaintainerCanModify)
-			}
+			assertPullRequestFields(t, tc.expectedPR, returnedPR)
 		})
 	}
 }
