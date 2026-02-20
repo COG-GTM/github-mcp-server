@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testErrMissingRunID      = "missing required parameter run_id"
+	testErrMissingRunIDColon = "missing required parameter: run_id"
+)
+
 func Test_ListWorkflows(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -339,14 +344,14 @@ func Test_CancelWorkflowRun(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:         "missing required parameter run_id",
+			name:         testErrMissingRunID,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]any{
 				"owner": "owner",
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: testErrMissingRunIDColon,
 		},
 	}
 
@@ -466,14 +471,14 @@ func Test_ListWorkflowRunArtifacts(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:         "missing required parameter run_id",
+			name:         testErrMissingRunID,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]any{
 				"owner": "owner",
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: testErrMissingRunIDColon,
 		},
 	}
 
@@ -636,14 +641,14 @@ func Test_DeleteWorkflowRunLogs(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:         "missing required parameter run_id",
+			name:         testErrMissingRunID,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]any{
 				"owner": "owner",
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: testErrMissingRunIDColon,
 		},
 	}
 
@@ -737,14 +742,14 @@ func Test_GetWorkflowRunUsage(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:         "missing required parameter run_id",
+			name:         testErrMissingRunID,
 			mockedClient: mock.NewMockedHTTPClient(),
 			requestArgs: map[string]any{
 				"owner": "owner",
 				"repo":  "repo",
 			},
 			expectError:    true,
-			expectedErrMsg: "missing required parameter: run_id",
+			expectedErrMsg: testErrMissingRunIDColon,
 		},
 	}
 
