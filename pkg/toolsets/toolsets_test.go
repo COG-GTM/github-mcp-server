@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+const toolsetNonExistent = "non-existent"
+
 func TestNewToolsetGroupIsEmptyWithoutEverythingOn(t *testing.T) {
 	tsg := NewToolsetGroup(false)
 	if len(tsg.Toolsets) != 0 {
@@ -71,7 +73,7 @@ func TestIsEnabled(t *testing.T) {
 	tsg := NewToolsetGroup(false)
 
 	// Test with non-existent toolset
-	if tsg.IsEnabled("non-existent") {
+	if tsg.IsEnabled(toolsetNonExistent) {
 		t.Error("Expected IsEnabled to return false for non-existent toolset")
 	}
 
@@ -95,7 +97,7 @@ func TestEnableFeature(t *testing.T) {
 	tsg := NewToolsetGroup(false)
 
 	// Test enabling non-existent toolset
-	err := tsg.EnableToolset("non-existent")
+	err := tsg.EnableToolset(toolsetNonExistent)
 	if err == nil {
 		t.Error("Expected error when enabling non-existent toolset")
 	}
@@ -148,11 +150,11 @@ func TestEnableToolsets(t *testing.T) {
 	}
 
 	// Test with non-existent toolset in the list
-	err = tsg.EnableToolsets([]string{"toolset1", "non-existent"})
+	err = tsg.EnableToolsets([]string{"toolset1", toolsetNonExistent})
 	if err == nil {
 		t.Error("Expected error when enabling list with non-existent toolset")
 	}
-	if !errors.Is(err, NewToolsetDoesNotExistError("non-existent")) {
+	if !errors.Is(err, NewToolsetDoesNotExistError(toolsetNonExistent)) {
 		t.Errorf("Expected ToolsetDoesNotExistError when enabling non-existent toolset, got: %v", err)
 	}
 
@@ -203,7 +205,7 @@ func TestEnableEverything(t *testing.T) {
 	}
 
 	// Verify a non-existent toolset is also enabled
-	if !tsg.IsEnabled("non-existent") {
+	if !tsg.IsEnabled(toolsetNonExistent) {
 		t.Error("Expected non-existent toolset to be enabled when everythingOn is true")
 	}
 }
