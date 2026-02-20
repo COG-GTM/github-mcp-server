@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const refsHeadsMain = "refs/heads/main"
+
 func Test_GetFileContents(t *testing.T) {
 	// Verify tool definition once
 	mockClient := github.NewClient(nil)
@@ -81,7 +83,7 @@ func Test_GetFileContents(t *testing.T) {
 				"owner": "owner",
 				"repo":  "repo",
 				"path":  "README.md",
-				"ref":   "refs/heads/main",
+				"ref":   refsHeadsMain,
 			},
 			expectError: false,
 			expectedResult: mcp.TextResourceContents{
@@ -105,7 +107,7 @@ func Test_GetFileContents(t *testing.T) {
 				"owner": "owner",
 				"repo":  "repo",
 				"path":  "test.png",
-				"ref":   "refs/heads/main",
+				"ref":   refsHeadsMain,
 			},
 			expectError: false,
 			expectedResult: mcp.BlobResourceContents{
@@ -162,7 +164,7 @@ func Test_GetFileContents(t *testing.T) {
 				"owner": "owner",
 				"repo":  "repo",
 				"path":  "nonexistent.md",
-				"ref":   "refs/heads/main",
+				"ref":   refsHeadsMain,
 			},
 			expectError:    false,
 			expectedResult: mcp.NewToolResultError("Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository."),
@@ -341,7 +343,7 @@ func Test_CreateBranch(t *testing.T) {
 
 	// Setup mock reference for from_branch tests
 	mockSourceRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(refsHeadsMain),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123def456"),
 		},
@@ -1160,7 +1162,7 @@ func Test_PushFiles(t *testing.T) {
 
 	// Setup mock objects
 	mockRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(refsHeadsMain),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123"),
 			URL: github.Ptr("https://api.github.com/repos/owner/repo/git/trees/abc123"),
@@ -1185,7 +1187,7 @@ func Test_PushFiles(t *testing.T) {
 	}
 
 	mockUpdatedRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(refsHeadsMain),
 		Object: &github.GitObject{
 			SHA: github.Ptr("jkl012"),
 			URL: github.Ptr("https://api.github.com/repos/owner/repo/git/trees/jkl012"),
@@ -1613,7 +1615,7 @@ func Test_DeleteFile(t *testing.T) {
 
 	// Setup mock objects for Git Data API
 	mockRef := &github.Reference{
-		Ref: github.Ptr("refs/heads/main"),
+		Ref: github.Ptr(refsHeadsMain),
 		Object: &github.GitObject{
 			SHA: github.Ptr("abc123"),
 		},
@@ -1693,7 +1695,7 @@ func Test_DeleteFile(t *testing.T) {
 						"force": false,
 					}).andThen(
 						mockResponse(t, http.StatusOK, &github.Reference{
-							Ref: github.Ptr("refs/heads/main"),
+							Ref: github.Ptr(refsHeadsMain),
 							Object: &github.GitObject{
 								SHA: github.Ptr("jkl012"),
 							},

@@ -19,6 +19,12 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+const (
+	fmtErrGetGitHubClient   = "failed to get GitHub client: %w"
+	fmtErrCreateResourceURI = "failed to create resource URI: %w"
+	repoURIScheme           = "repo://"
+)
+
 func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_commit",
 			mcp.WithDescription(t("TOOL_GET_COMMITS_DESCRIPTION", "Get details for a commit from a GitHub repository")),
@@ -65,7 +71,7 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			commit, resp, err := client.Repositories.GetCommit(ctx, owner, repo, sha, opts)
 			if err != nil {
@@ -155,7 +161,7 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
 			if err != nil {
@@ -225,7 +231,7 @@ func ListBranches(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			branches, resp, err := client.Repositories.ListBranches(ctx, owner, repo, opts)
@@ -339,7 +345,7 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 			// Create or update the file
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			fileContent, resp, err := client.Repositories.CreateFile(ctx, owner, repo, path, opts)
 			if err != nil {
@@ -417,7 +423,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			createdRepo, resp, err := client.Repositories.Create(ctx, "", repo)
 			if err != nil {
@@ -503,7 +509,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					// fetch the PR from the API to get the latest commit and use SHA
 					githubClient, err := getClient(ctx)
 					if err != nil {
-						return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+						return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 					}
 					prNum, err := strconv.Atoi(prNumber)
 					if err != nil {
@@ -547,19 +553,19 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 					var resourceURI string
 					switch {
 					case sha != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+						resourceURI, err = url.JoinPath(repoURIScheme, owner, repo, "sha", sha, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(fmtErrCreateResourceURI, err)
 						}
 					case ref != "":
-						resourceURI, err = url.JoinPath("repo://", owner, repo, ref, "contents", path)
+						resourceURI, err = url.JoinPath(repoURIScheme, owner, repo, ref, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(fmtErrCreateResourceURI, err)
 						}
 					default:
-						resourceURI, err = url.JoinPath("repo://", owner, repo, "contents", path)
+						resourceURI, err = url.JoinPath(repoURIScheme, owner, repo, "contents", path)
 						if err != nil {
-							return nil, fmt.Errorf("failed to create resource URI: %w", err)
+							return nil, fmt.Errorf(fmtErrCreateResourceURI, err)
 						}
 					}
 
@@ -655,7 +661,7 @@ func ForkRepository(getClient GetClientFn, t translations.TranslationHelperFunc)
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 			forkedRepo, resp, err := client.Repositories.CreateFork(ctx, owner, repo, opts)
 			if err != nil {
@@ -748,7 +754,7 @@ func DeleteFile(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -909,7 +915,7 @@ func CreateBranch(getClient GetClientFn, t translations.TranslationHelperFunc) (
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the source branch SHA
@@ -1037,7 +1043,7 @@ func PushFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// Get the reference for the branch
@@ -1177,7 +1183,7 @@ func ListTags(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			tags, resp, err := client.Repositories.ListTags(ctx, owner, repo, opts)
@@ -1244,7 +1250,7 @@ func GetTag(getClient GetClientFn, t translations.TranslationHelperFunc) (tool m
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(fmtErrGetGitHubClient, err)
 			}
 
 			// First get the tag reference
