@@ -17,6 +17,12 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+const (
+	errGetGitHubClientFmt = "failed to get GitHub client: %w"
+	descRepoOwner         = "Repository owner"
+	descRepoName          = "Repository name"
+)
+
 // GetIssue creates a tool to get details of a specific issue in a GitHub repository.
 func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_issue",
@@ -54,7 +60,7 @@ func GetIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errGetGitHubClientFmt, err)
 			}
 			issue, resp, err := client.Issues.Get(ctx, owner, repo, issueNumber)
 			if err != nil {
@@ -89,11 +95,11 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -128,7 +134,7 @@ func AddIssueComment(getClient GetClientFn, t translations.TranslationHelperFunc
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errGetGitHubClientFmt, err)
 			}
 			createdComment, resp, err := client.Issues.CreateComment(ctx, owner, repo, issueNumber, comment)
 			if err != nil {
@@ -208,11 +214,11 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithString("title",
 				mcp.Required(),
@@ -295,7 +301,7 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errGetGitHubClientFmt, err)
 			}
 			issue, resp, err := client.Issues.Create(ctx, owner, repo, issueRequest)
 			if err != nil {
@@ -321,6 +327,93 @@ func CreateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 }
 
 // ListIssues creates a tool to list and filter repository issues
+func parseListIssuesParams(request mcp.CallToolRequest) (string, string, *github.IssueListByRepoOptions, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	opts := &github.IssueListByRepoOptions{}
+
+	opts.State, err = OptionalParam[string](request, "state")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	opts.Labels, err = OptionalStringArrayParam(request, "labels")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	opts.Sort, err = OptionalParam[string](request, "sort")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	opts.Direction, err = OptionalParam[string](request, "direction")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	since, err := OptionalParam[string](request, "since")
+	if err != nil {
+		return "", "", nil, err
+	}
+	if since != "" {
+		timestamp, err := parseISOTimestamp(since)
+		if err != nil {
+			return "", "", nil, fmt.Errorf("failed to list issues: %s", err.Error())
+		}
+		opts.Since = timestamp
+	}
+
+	if page, ok := request.GetArguments()["page"].(float64); ok {
+		opts.ListOptions.Page = int(page)
+	}
+
+	if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
+		opts.ListOptions.PerPage = int(perPage)
+	}
+
+	return owner, repo, opts, nil
+}
+
+func handleListIssues(ctx context.Context, getClient GetClientFn, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	owner, repo, opts, err := parseListIssuesParams(request)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(errGetGitHubClientFmt, err)
+	}
+	issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list issues: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
+	}
+
+	r, err := json.Marshal(issues)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal issues: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(r)), nil
+}
+
 func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_issues",
 			mcp.WithDescription(t("TOOL_LIST_ISSUES_DESCRIPTION", "List issues in a GitHub repository.")),
@@ -330,11 +423,11 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithString("state",
 				mcp.Description("Filter by state"),
@@ -362,83 +455,7 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts := &github.IssueListByRepoOptions{}
-
-			// Set optional parameters if provided
-			opts.State, err = OptionalParam[string](request, "state")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Get labels
-			opts.Labels, err = OptionalStringArrayParam(request, "labels")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Sort, err = OptionalParam[string](request, "sort")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			opts.Direction, err = OptionalParam[string](request, "direction")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			since, err := OptionalParam[string](request, "since")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if since != "" {
-				timestamp, err := parseISOTimestamp(since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", err.Error())), nil
-				}
-				opts.Since = timestamp
-			}
-
-			if page, ok := request.GetArguments()["page"].(float64); ok {
-				opts.ListOptions.Page = int(page)
-			}
-
-			if perPage, ok := request.GetArguments()["perPage"].(float64); ok {
-				opts.ListOptions.PerPage = int(perPage)
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			issues, resp, err := client.Issues.ListByRepo(ctx, owner, repo, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to list issues: %w", err)
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list issues: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(issues)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal issues: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return handleListIssues(ctx, getClient, request)
 		}
 }
 
@@ -452,11 +469,11 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -563,7 +580,7 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errGetGitHubClientFmt, err)
 			}
 			updatedIssue, resp, err := client.Issues.Edit(ctx, owner, repo, issueNumber, issueRequest)
 			if err != nil {
@@ -598,11 +615,11 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithNumber("issue_number",
 				mcp.Required(),
@@ -646,7 +663,7 @@ func GetIssueComments(getClient GetClientFn, t translations.TranslationHelperFun
 
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errGetGitHubClientFmt, err)
 			}
 			comments, resp, err := client.Issues.ListComments(ctx, owner, repo, issueNumber, opts)
 			if err != nil {
@@ -701,6 +718,128 @@ func (d *mvpDescription) String() string {
 	return sb.String()
 }
 
+type botAssignee struct {
+	ID       githubv4.ID
+	Login    string
+	TypeName string `graphql:"__typename"`
+}
+
+type suggestedActorsQuery struct {
+	Repository struct {
+		SuggestedActors struct {
+			Nodes []struct {
+				Bot botAssignee `graphql:"... on Bot"`
+			}
+			PageInfo struct {
+				HasNextPage bool
+				EndCursor   string
+			}
+		} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+	} `graphql:"repository(owner: $owner, name: $name)"`
+}
+
+func findCopilotAssignee(ctx context.Context, client *githubv4.Client, owner, repo string) (*botAssignee, error) {
+	variables := map[string]any{
+		"owner":     githubv4.String(owner),
+		"name":      githubv4.String(repo),
+		"endCursor": (*githubv4.String)(nil),
+	}
+
+	for {
+		var query suggestedActorsQuery
+		if err := client.Query(ctx, &query, variables); err != nil {
+			return nil, err
+		}
+
+		for _, node := range query.Repository.SuggestedActors.Nodes {
+			if node.Bot.Login == "copilot-swe-agent" {
+				return &node.Bot, nil
+			}
+		}
+
+		if !query.Repository.SuggestedActors.PageInfo.HasNextPage {
+			break
+		}
+		variables["endCursor"] = githubv4.String(query.Repository.SuggestedActors.PageInfo.EndCursor)
+	}
+
+	return nil, nil
+}
+
+func handleAssignCopilotToIssue(ctx context.Context, getGQLClient GetGQLClientFn, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	var params struct {
+		Owner       string
+		Repo        string
+		IssueNumber int32
+	}
+	if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	client, err := getGQLClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf(errGetGitHubClientFmt, err)
+	}
+
+	copilotAssignee, err := findCopilotAssignee(ctx, client, params.Owner, params.Repo)
+	if err != nil {
+		return nil, err
+	}
+
+	if copilotAssignee == nil {
+		return mcp.NewToolResultError("copilot isn't available as an assignee for this issue. Please inform the user to visit https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot for more information."), nil
+	}
+
+	var getIssueQuery struct {
+		Repository struct {
+			Issue struct {
+				ID        githubv4.ID
+				Assignees struct {
+					Nodes []struct {
+						ID githubv4.ID
+					}
+				} `graphql:"assignees(first: 100)"`
+			} `graphql:"issue(number: $number)"`
+		} `graphql:"repository(owner: $owner, name: $name)"`
+	}
+
+	variables := map[string]any{
+		"owner":  githubv4.String(params.Owner),
+		"name":   githubv4.String(params.Repo),
+		"number": githubv4.Int(params.IssueNumber),
+	}
+
+	if err := client.Query(ctx, &getIssueQuery, variables); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("failed to get issue ID: %v", err)), nil
+	}
+
+	var assignCopilotMutation struct {
+		ReplaceActorsForAssignable struct {
+			Typename string `graphql:"__typename"`
+		} `graphql:"replaceActorsForAssignable(input: $input)"`
+	}
+
+	actorIDs := make([]githubv4.ID, len(getIssueQuery.Repository.Issue.Assignees.Nodes)+1)
+	for i, node := range getIssueQuery.Repository.Issue.Assignees.Nodes {
+		actorIDs[i] = node.ID
+	}
+	actorIDs[len(getIssueQuery.Repository.Issue.Assignees.Nodes)] = copilotAssignee.ID
+
+	if err := client.Mutate(
+		ctx,
+		&assignCopilotMutation,
+		ReplaceActorsForAssignableInput{
+			AssignableID: getIssueQuery.Repository.Issue.ID,
+			ActorIDs:     actorIDs,
+		},
+		nil,
+	); err != nil {
+		return nil, fmt.Errorf("failed to replace actors for assignable: %w", err)
+	}
+
+	return mcp.NewToolResultText("successfully assigned copilot to issue"), nil
+}
+
 func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	description := mvpDescription{
 		summary: "Assign Copilot to a specific issue in a GitHub repository.",
@@ -721,11 +860,11 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 			}),
 			mcp.WithString("owner",
 				mcp.Required(),
-				mcp.Description("Repository owner"),
+				mcp.Description(descRepoOwner),
 			),
 			mcp.WithString("repo",
 				mcp.Required(),
-				mcp.Description("Repository name"),
+				mcp.Description(descRepoName),
 			),
 			mcp.WithNumber("issueNumber",
 				mcp.Required(),
@@ -733,130 +872,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			var params struct {
-				Owner       string
-				Repo        string
-				IssueNumber int32
-			}
-			if err := mapstructure.Decode(request.Params.Arguments, &params); err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			client, err := getGQLClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-
-			// Firstly, we try to find the copilot bot in the suggested actors for the repository.
-			// Although as I write this, we would expect copilot to be at the top of the list, in future, maybe
-			// it will not be on the first page of responses, thus we will keep paginating until we find it.
-			type botAssignee struct {
-				ID       githubv4.ID
-				Login    string
-				TypeName string `graphql:"__typename"`
-			}
-
-			type suggestedActorsQuery struct {
-				Repository struct {
-					SuggestedActors struct {
-						Nodes []struct {
-							Bot botAssignee `graphql:"... on Bot"`
-						}
-						PageInfo struct {
-							HasNextPage bool
-							EndCursor   string
-						}
-					} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
-				} `graphql:"repository(owner: $owner, name: $name)"`
-			}
-
-			variables := map[string]any{
-				"owner":     githubv4.String(params.Owner),
-				"name":      githubv4.String(params.Repo),
-				"endCursor": (*githubv4.String)(nil),
-			}
-
-			var copilotAssignee *botAssignee
-			for {
-				var query suggestedActorsQuery
-				err := client.Query(ctx, &query, variables)
-				if err != nil {
-					return nil, err
-				}
-
-				// Iterate all the returned nodes looking for the copilot bot, which is supposed to have the
-				// same name on each host. We need this in order to get the ID for later assignment.
-				for _, node := range query.Repository.SuggestedActors.Nodes {
-					if node.Bot.Login == "copilot-swe-agent" {
-						copilotAssignee = &node.Bot
-						break
-					}
-				}
-
-				if !query.Repository.SuggestedActors.PageInfo.HasNextPage {
-					break
-				}
-				variables["endCursor"] = githubv4.String(query.Repository.SuggestedActors.PageInfo.EndCursor)
-			}
-
-			// If we didn't find the copilot bot, we can't proceed any further.
-			if copilotAssignee == nil {
-				// The e2e tests depend upon this specific message to skip the test.
-				return mcp.NewToolResultError("copilot isn't available as an assignee for this issue. Please inform the user to visit https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot for more information."), nil
-			}
-
-			// Next let's get the GQL Node ID and current assignees for this issue because the only way to
-			// assign copilot is to use replaceActorsForAssignable which requires the full list.
-			var getIssueQuery struct {
-				Repository struct {
-					Issue struct {
-						ID        githubv4.ID
-						Assignees struct {
-							Nodes []struct {
-								ID githubv4.ID
-							}
-						} `graphql:"assignees(first: 100)"`
-					} `graphql:"issue(number: $number)"`
-				} `graphql:"repository(owner: $owner, name: $name)"`
-			}
-
-			variables = map[string]any{
-				"owner":  githubv4.String(params.Owner),
-				"name":   githubv4.String(params.Repo),
-				"number": githubv4.Int(params.IssueNumber),
-			}
-
-			if err := client.Query(ctx, &getIssueQuery, variables); err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get issue ID: %v", err)), nil
-			}
-
-			// Finally, do the assignment. Just for reference, assigning copilot to an issue that it is already
-			// assigned to seems to have no impact (which is a good thing).
-			var assignCopilotMutation struct {
-				ReplaceActorsForAssignable struct {
-					Typename string `graphql:"__typename"` // Not required but we need a selector or GQL errors
-				} `graphql:"replaceActorsForAssignable(input: $input)"`
-			}
-
-			actorIDs := make([]githubv4.ID, len(getIssueQuery.Repository.Issue.Assignees.Nodes)+1)
-			for i, node := range getIssueQuery.Repository.Issue.Assignees.Nodes {
-				actorIDs[i] = node.ID
-			}
-			actorIDs[len(getIssueQuery.Repository.Issue.Assignees.Nodes)] = copilotAssignee.ID
-
-			if err := client.Mutate(
-				ctx,
-				&assignCopilotMutation,
-				ReplaceActorsForAssignableInput{
-					AssignableID: getIssueQuery.Repository.Issue.ID,
-					ActorIDs:     actorIDs,
-				},
-				nil,
-			); err != nil {
-				return nil, fmt.Errorf("failed to replace actors for assignable: %w", err)
-			}
-
-			return mcp.NewToolResultText("successfully assigned copilot to issue"), nil
+			return handleAssignCopilotToIssue(ctx, getGQLClient, request)
 		}
 }
 

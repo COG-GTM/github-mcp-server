@@ -17,6 +17,12 @@ import (
 	"github.com/github/github-mcp-server/pkg/translations"
 )
 
+const (
+	errGetPullRequest             = "failed to get pull request"
+	errGetCurrentUser             = "failed to get current user"
+	errGetLatestReviewForCurrUser = "failed to get latest review for current user"
+)
+
 // GetPullRequest creates a tool to get details of a specific pull request.
 func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request",
@@ -59,7 +65,7 @@ func GetPullRequest(getClient GetClientFn, t translations.TranslationHelperFunc)
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					errGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -578,6 +584,33 @@ func SearchPullRequests(getClient GetClientFn, t translations.TranslationHelperF
 		}
 }
 
+type prFileParams struct {
+	owner      string
+	repo       string
+	pullNumber int
+	pagination PaginationParams
+}
+
+func parsePRFileParams(request mcp.CallToolRequest) (*prFileParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	pullNumber, err := RequiredInt(request, "pullNumber")
+	if err != nil {
+		return nil, err
+	}
+	pg, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+	return &prFileParams{owner: owner, repo: repo, pullNumber: pullNumber, pagination: pg}, nil
+}
+
 // GetPullRequestFiles creates a tool to get the list of files changed in a pull request.
 func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelperFunc) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_pull_request_files",
@@ -601,19 +634,7 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pullNumber, err := RequiredInt(request, "pullNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
+			params, err := parsePRFileParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -623,10 +644,10 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 			opts := &github.ListOptions{
-				PerPage: pagination.perPage,
-				Page:    pagination.page,
+				PerPage: params.pagination.perPage,
+				Page:    params.pagination.page,
 			}
-			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
+			files, resp, err := client.PullRequests.ListFiles(ctx, params.owner, params.repo, params.pullNumber, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to get pull request files",
@@ -695,7 +716,7 @@ func GetPullRequestStatus(getClient GetClientFn, t translations.TranslationHelpe
 			pr, resp, err := client.PullRequests.Get(ctx, owner, repo, pullNumber)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request",
+					errGetPullRequest,
 					resp,
 					err,
 				), nil
@@ -1025,7 +1046,7 @@ func CreateAndSubmitPullRequestReview(getGQLClient GetGQLClientFn, t translation
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					errGetPullRequest,
 					err,
 				), nil
 			}
@@ -1119,7 +1140,7 @@ func CreatePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 				"prNum": githubv4.Int(params.PullNumber),
 			}); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get pull request",
+					errGetPullRequest,
 					err,
 				), nil
 			}
@@ -1240,7 +1261,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					errGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1268,7 +1289,7 @@ func AddPullRequestReviewCommentToPendingReview(getGQLClient GetGQLClientFn, t t
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					errGetLatestReviewForCurrUser,
 					err,
 				), nil
 			}
@@ -1377,7 +1398,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					errGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1405,7 +1426,7 @@ func SubmitPendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					errGetLatestReviewForCurrUser,
 					err,
 				), nil
 			}
@@ -1501,7 +1522,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(ctx, &getViewerQuery, nil); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get current user",
+					errGetCurrentUser,
 					err,
 				), nil
 			}
@@ -1529,7 +1550,7 @@ func DeletePendingPullRequestReview(getGQLClient GetGQLClientFn, t translations.
 
 			if err := client.Query(context.Background(), &getLatestReviewForViewerQuery, vars); err != nil {
 				return ghErrors.NewGitHubGraphQLErrorResponse(ctx,
-					"failed to get latest review for current user",
+					errGetLatestReviewForCurrUser,
 					err,
 				), nil
 			}
