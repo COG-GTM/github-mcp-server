@@ -442,6 +442,81 @@ func ListIssues(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 		}
 }
 
+func buildIssueUpdateRequest(request mcp.CallToolRequest) (*github.IssueRequest, error) {
+	issueRequest := &github.IssueRequest{}
+
+	title, err := OptionalParam[string](request, "title")
+	if err != nil {
+		return nil, err
+	}
+	if title != "" {
+		issueRequest.Title = github.Ptr(title)
+	}
+
+	body, err := OptionalParam[string](request, "body")
+	if err != nil {
+		return nil, err
+	}
+	if body != "" {
+		issueRequest.Body = github.Ptr(body)
+	}
+
+	state, err := OptionalParam[string](request, "state")
+	if err != nil {
+		return nil, err
+	}
+	if state != "" {
+		issueRequest.State = github.Ptr(state)
+	}
+
+	labels, err := OptionalStringArrayParam(request, "labels")
+	if err != nil {
+		return nil, err
+	}
+	if len(labels) > 0 {
+		issueRequest.Labels = &labels
+	}
+
+	assignees, err := OptionalStringArrayParam(request, "assignees")
+	if err != nil {
+		return nil, err
+	}
+	if len(assignees) > 0 {
+		issueRequest.Assignees = &assignees
+	}
+
+	milestone, err := OptionalIntParam(request, "milestone")
+	if err != nil {
+		return nil, err
+	}
+	if milestone != 0 {
+		milestoneNum := milestone
+		issueRequest.Milestone = &milestoneNum
+	}
+
+	return issueRequest, nil
+}
+
+func parseUpdateIssueParams(request mcp.CallToolRequest) (owner, repo string, issueNumber int, issueRequest *github.IssueRequest, err error) {
+	owner, err = RequiredParam[string](request, "owner")
+	if err != nil {
+		return "", "", 0, nil, err
+	}
+	repo, err = RequiredParam[string](request, "repo")
+	if err != nil {
+		return "", "", 0, nil, err
+	}
+	issueNumber, err = RequiredInt(request, "issue_number")
+	if err != nil {
+		return "", "", 0, nil, err
+	}
+	issueRequest, err = buildIssueUpdateRequest(request)
+	if err != nil {
+		return "", "", 0, nil, err
+	}
+	return owner, repo, issueNumber, issueRequest, nil
+}
+
 // UpdateIssue creates a tool to update an existing issue in a GitHub repository.
 func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("update_issue",
@@ -493,72 +568,9 @@ func UpdateIssue(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
+			owner, repo, issueNumber, issueRequest, err := parseUpdateIssueParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			issueNumber, err := RequiredInt(request, "issue_number")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Create the issue request with only provided fields
-			issueRequest := &github.IssueRequest{}
-
-			// Set optional parameters if provided
-			title, err := OptionalParam[string](request, "title")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if title != "" {
-				issueRequest.Title = github.Ptr(title)
-			}
-
-			body, err := OptionalParam[string](request, "body")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if body != "" {
-				issueRequest.Body = github.Ptr(body)
-			}
-
-			state, err := OptionalParam[string](request, "state")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if state != "" {
-				issueRequest.State = github.Ptr(state)
-			}
-
-			// Get labels
-			labels, err := OptionalStringArrayParam(request, "labels")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if len(labels) > 0 {
-				issueRequest.Labels = &labels
-			}
-
-			// Get assignees
-			assignees, err := OptionalStringArrayParam(request, "assignees")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if len(assignees) > 0 {
-				issueRequest.Assignees = &assignees
-			}
-
-			milestone, err := OptionalIntParam(request, "milestone")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			if milestone != 0 {
-				milestoneNum := milestone
-				issueRequest.Milestone = &milestoneNum
 			}
 
 			client, err := getClient(ctx)
