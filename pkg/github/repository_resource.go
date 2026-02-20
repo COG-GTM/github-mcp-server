@@ -2,14 +2,12 @@ package github
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/github/github-mcp-server/pkg/raw"
@@ -92,19 +90,10 @@ func resolveResourceRef(ctx context.Context, getClient GetClientFn, args map[str
 		rawOpts.Ref = "refs/tags/" + tag[0]
 	}
 	if prNumber, ok := args["prNumber"].([]string); ok && len(prNumber) > 0 {
-		githubClient, err := getClient(ctx)
+		sha, err := fetchPRHeadSHA(ctx, getClient, owner, repo, prNumber[0])
 		if err != nil {
-			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+			return nil, err
 		}
-		prNum, err := strconv.Atoi(prNumber[0])
-		if err != nil {
-			return nil, fmt.Errorf("invalid pull request number: %w", err)
-		}
-		pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get pull request: %w", err)
-		}
-		sha := pr.GetHead().GetSHA()
 		rawOpts.SHA = sha
 	}
 	return rawOpts, nil
@@ -122,22 +111,7 @@ func inferMIMEType(path string, headerContentType string) string {
 }
 
 func buildResourceResponse(uri, mimeType string, content []byte) []mcp.ResourceContents {
-	if strings.HasPrefix(mimeType, "text") || strings.HasPrefix(mimeType, "application") {
-		return []mcp.ResourceContents{
-			mcp.TextResourceContents{
-				URI:      uri,
-				MIMEType: mimeType,
-				Text:     string(content),
-			},
-		}
-	}
-	return []mcp.ResourceContents{
-		mcp.BlobResourceContents{
-			URI:      uri,
-			MIMEType: mimeType,
-			Blob:     base64.StdEncoding.EncodeToString(content),
-		},
-	}
+	return []mcp.ResourceContents{newResourceContents(uri, mimeType, content)}
 }
 
 // RepositoryResourceContentsHandler returns a handler function for repository content requests.

@@ -478,24 +478,32 @@ func getFileContentsParseParams(request mcp.CallToolRequest) (owner, repo, path,
 	return
 }
 
+func fetchPRHeadSHA(ctx context.Context, getClient GetClientFn, owner, repo, prNumber string) (string, error) {
+	githubClient, err := getClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf(fmtErrGetGitHubClient, err)
+	}
+	prNum, err := strconv.Atoi(prNumber)
+	if err != nil {
+		return "", fmt.Errorf("invalid pull request number: %w", err)
+	}
+	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pull request: %w", err)
+	}
+	return pr.GetHead().GetSHA(), nil
+}
+
 func resolvePRRef(ctx context.Context, getClient GetClientFn, owner, repo, ref string) (resolvedSHA, resolvedRef string, err error) {
 	prNumber := strings.TrimSuffix(strings.TrimPrefix(ref, "refs/pull/"), "/head")
 	if len(prNumber) == 0 {
 		return "", ref, nil
 	}
-	githubClient, err := getClient(ctx)
+	sha, err := fetchPRHeadSHA(ctx, getClient, owner, repo, prNumber)
 	if err != nil {
-		return "", "", fmt.Errorf(fmtErrGetGitHubClient, err)
+		return "", "", err
 	}
-	prNum, err := strconv.Atoi(prNumber)
-	if err != nil {
-		return "", "", fmt.Errorf("invalid pull request number: %w", err)
-	}
-	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get pull request: %w", err)
-	}
-	return pr.GetHead().GetSHA(), "", nil
+	return sha, "", nil
 }
 
 func buildResourceURI(owner, repo, sha, ref, path string) (string, error) {
@@ -506,6 +514,21 @@ func buildResourceURI(owner, repo, sha, ref, path string) (string, error) {
 		return url.JoinPath(repoURIScheme, owner, repo, ref, "contents", path)
 	default:
 		return url.JoinPath(repoURIScheme, owner, repo, "contents", path)
+	}
+}
+
+func newResourceContents(uri, mimeType string, content []byte) mcp.ResourceContents {
+	if strings.HasPrefix(mimeType, "application") || strings.HasPrefix(mimeType, "text") {
+		return mcp.TextResourceContents{
+			URI:      uri,
+			MIMEType: mimeType,
+			Text:     string(content),
+		}
+	}
+	return mcp.BlobResourceContents{
+		URI:      uri,
+		MIMEType: mimeType,
+		Blob:     base64.StdEncoding.EncodeToString(content),
 	}
 }
 
@@ -535,19 +558,11 @@ func fetchRawFileContent(ctx context.Context, getRawClient raw.GetRawClientFn, o
 		return nil, fmt.Errorf(fmtErrCreateResourceURI, err)
 	}
 
-	if strings.HasPrefix(contentType, "application") || strings.HasPrefix(contentType, "text") {
-		return mcp.NewToolResultResource("successfully downloaded text file", mcp.TextResourceContents{
-			URI:      resourceURI,
-			Text:     string(body),
-			MIMEType: contentType,
-		}), nil
+	rc := newResourceContents(resourceURI, contentType, body)
+	if _, ok := rc.(mcp.TextResourceContents); ok {
+		return mcp.NewToolResultResource("successfully downloaded text file", rc), nil
 	}
-
-	return mcp.NewToolResultResource("successfully downloaded binary file", mcp.BlobResourceContents{
-		URI:      resourceURI,
-		Blob:     base64.StdEncoding.EncodeToString(body),
-		MIMEType: contentType,
-	}), nil
+	return mcp.NewToolResultResource("successfully downloaded binary file", rc), nil
 }
 
 func fetchDirContents(ctx context.Context, client *github.Client, owner, repo, path, ref string) (*mcp.CallToolResult, error) {
