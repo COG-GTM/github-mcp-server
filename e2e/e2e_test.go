@@ -36,6 +36,39 @@ var (
 	buildError error
 )
 
+const (
+	testBranch        = "test-branch"
+	testFileName      = "test-file.txt"
+	testCommitMessage = "Add test file"
+	testPRTitle       = "Test PR"
+	testPRBody        = "This is a test PR"
+	githubURL         = "https://github.com"
+
+	repoNameFmt         = "github-mcp-server-e2e-%s-%d"
+	createdByE2ETestFmt = "Created by e2e test %s"
+
+	msgGetMeSuccess              = "expected to call 'get_me' tool successfully"
+	msgResultNotError            = "expected result not to be an error"
+	msgContentOneItem            = "expected content to have one item"
+	msgContentTextType           = "expected content to be of type TextContent"
+	msgUnmarshalSuccess          = "expected to unmarshal text content successfully"
+	msgResultNotErrorFmt         = "expected result not to be an error: %+v"
+	msgDeleteRepoSuccess         = "expected to delete repository successfully"
+	msgCreateRepoSuccess         = "expected to call 'create_repository' tool successfully"
+	msgCreateBranchSuccess       = "expected to call 'create_branch' tool successfully"
+	msgCreateOrUpdateFileSuccess = "expected to call 'create_or_update_file' tool successfully"
+	msgCreatePRSuccess           = "expected to call 'create_pull_request' tool successfully"
+	msgGetPRReviewsSuccess       = "expected to call 'get_pull_request_reviews' tool successfully"
+
+	logGettingCurrentUser  = "Getting current user..."
+	logCreatingRepoFmt     = "Creating repository %s/%s..."
+	logDeletingRepoFmt     = "Deleting repository %s/%s..."
+	logCreatingBranchFmt   = "Creating branch in %s/%s..."
+	logCreatingCommitFmt   = "Creating commit with new file in %s/%s..."
+	logCreatingPRFmt       = "Creating pull request in %s/%s..."
+	logGettingPRReviewsFmt = "Getting reviews for pull request in %s/%s..."
+)
+
 // getE2EToken ensures the environment variable is checked only once and returns the token
 func getE2EToken(t *testing.T) string {
 	getTokenOnce.Do(func() {
@@ -62,7 +95,7 @@ func getRESTClient(t *testing.T) *gogithub.Client {
 	// Create a new GitHub client with the token
 	ghClient := gogithub.NewClient(nil).WithAuthToken(token)
 
-	if host := getE2EHost(); host != "" && host != "https://github.com" {
+	if host := getE2EHost(); host != "" && host != githubURL {
 		var err error
 		// Currently this works for GHEC because the API is exposed at the api subdomain and the path prefix
 		// but it would be preferable to extract the host parsing from the main server logic, and use it here.
@@ -218,19 +251,19 @@ func TestGetMe(t *testing.T) {
 	request.Params.Name = "get_me"
 
 	response, err := mcpClient.CallTool(ctx, request)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
+	require.NoError(t, err, msgGetMeSuccess)
 
-	require.False(t, response.IsError, "expected result not to be an error")
-	require.Len(t, response.Content, 1, "expected content to have one item")
+	require.False(t, response.IsError, msgResultNotError)
+	require.Len(t, response.Content, 1, msgContentOneItem)
 
 	textContent, ok := response.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedContent struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedContent)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	// Then the login in the response should match the login obtained via the same
 	// token using the GitHub API.
@@ -280,27 +313,27 @@ func TestTags(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -309,18 +342,18 @@ func TestTags(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Then create a tag
@@ -359,13 +392,13 @@ func TestTags(t *testing.T) {
 	t.Logf("Listing tags for %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, listTagsRequest)
 	require.NoError(t, err, "expected to call 'list_tags' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedTags []struct {
 		Name   string `json:"name"`
@@ -374,7 +407,7 @@ func TestTags(t *testing.T) {
 		} `json:"commit"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedTags)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	require.Len(t, trimmedTags, 1, "expected to find one tag")
 	require.Equal(t, "v0.0.1", trimmedTags[0].Name, "expected tag name to match")
@@ -392,7 +425,7 @@ func TestTags(t *testing.T) {
 	t.Logf("Getting tag %s/%s:%s...", currentOwner, repoName, "v0.0.1")
 	resp, err = mcpClient.CallTool(ctx, getTagRequest)
 	require.NoError(t, err, "expected to call 'get_tag' tool successfully")
-	require.False(t, resp.IsError, "expected result not to be an error")
+	require.False(t, resp.IsError, msgResultNotError)
 
 	var trimmedTag []struct { // don't understand why this is an array
 		Name   string `json:"name"`
@@ -401,7 +434,7 @@ func TestTags(t *testing.T) {
 		} `json:"commit"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedTag)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.Len(t, trimmedTag, 1, "expected to find one tag")
 	require.Equal(t, "v0.0.1", trimmedTag[0].Name, "expected tag name to match")
 	require.Equal(t, *ref.Object.SHA, trimmedTag[0].Commit.SHA, "expected tag SHA to match")
@@ -418,27 +451,27 @@ func TestFileDeletion(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -446,18 +479,18 @@ func TestFileDeletion(t *testing.T) {
 		"private":  true,
 		"autoInit": true,
 	}
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -466,14 +499,14 @@ func TestFileDeletion(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -481,16 +514,16 @@ func TestFileDeletion(t *testing.T) {
 	commitRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"path":    testFileName,
+		"content": fmt.Sprintf(createdByE2ETestFmt, t.Name()),
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Check the file exists
 	getFileContentsRequest := mcp.CallToolRequest{}
@@ -498,14 +531,14 @@ func TestFileDeletion(t *testing.T) {
 	getFileContentsRequest.Params.Arguments = map[string]any{
 		"owner":  currentOwner,
 		"repo":   repoName,
-		"path":   "test-file.txt",
-		"branch": "test-branch",
+		"path":   testFileName,
+		"branch": testBranch,
 	}
 
 	t.Logf("Getting file contents in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getFileContentsRequest)
 	require.NoError(t, err, "expected to call 'get_file_contents' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	embeddedResource, ok := resp.Content[1].(mcp.EmbeddedResource)
 	require.True(t, ok, "expected content to be of type EmbeddedResource")
@@ -514,7 +547,7 @@ func TestFileDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(createdByE2ETestFmt, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -522,15 +555,15 @@ func TestFileDeletion(t *testing.T) {
 	deleteFileRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
+		"path":    testFileName,
 		"message": "Delete test file",
-		"branch":  "test-branch",
+		"branch":  testBranch,
 	}
 
 	t.Logf("Deleting file in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, deleteFileRequest)
 	require.NoError(t, err, "expected to call 'delete_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// See that there is a commit that removes the file
 	listCommitsRequest := mcp.CallToolRequest{}
@@ -538,16 +571,16 @@ func TestFileDeletion(t *testing.T) {
 	listCommitsRequest.Params.Arguments = map[string]any{
 		"owner": currentOwner,
 		"repo":  repoName,
-		"sha":   "test-branch", // can be SHA or branch, which is an unfortunate API design
+		"sha":   testBranch, // can be SHA or branch, which is an unfortunate API design
 	}
 
 	t.Logf("Listing commits in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, listCommitsRequest)
 	require.NoError(t, err, "expected to call 'list_commits' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedListCommitsText []struct {
 		SHA    string `json:"sha"`
@@ -560,7 +593,7 @@ func TestFileDeletion(t *testing.T) {
 		}
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedListCommitsText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.GreaterOrEqual(t, len(trimmedListCommitsText), 1, "expected to find at least one commit")
 
 	deletionCommit := trimmedListCommitsText[0]
@@ -578,10 +611,10 @@ func TestFileDeletion(t *testing.T) {
 	t.Logf("Getting commit %s/%s:%s...", currentOwner, repoName, deletionCommit.SHA)
 	resp, err = mcpClient.CallTool(ctx, getCommitRequest)
 	require.NoError(t, err, "expected to call 'get_commit' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetCommitText struct {
 		Files []struct {
@@ -590,9 +623,9 @@ func TestFileDeletion(t *testing.T) {
 		}
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetCommitText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.Len(t, trimmedGetCommitText.Files, 1, "expected to find one file change")
-	require.Equal(t, "test-file.txt", trimmedGetCommitText.Files[0].Filename, "expected filename to match")
+	require.Equal(t, testFileName, trimmedGetCommitText.Files[0].Filename, "expected filename to match")
 	require.Equal(t, 1, trimmedGetCommitText.Files[0].Deletions, "expected one deletion")
 }
 
@@ -607,27 +640,27 @@ func TestDirectoryDeletion(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -635,18 +668,18 @@ func TestDirectoryDeletion(t *testing.T) {
 		"private":  true,
 		"autoInit": true,
 	}
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -655,14 +688,14 @@ func TestDirectoryDeletion(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -671,18 +704,18 @@ func TestDirectoryDeletion(t *testing.T) {
 		"owner":   currentOwner,
 		"repo":    repoName,
 		"path":    "test-dir/test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"content": fmt.Sprintf(createdByE2ETestFmt, t.Name()),
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	// Check the file exists
 	getFileContentsRequest := mcp.CallToolRequest{}
@@ -691,13 +724,13 @@ func TestDirectoryDeletion(t *testing.T) {
 		"owner":  currentOwner,
 		"repo":   repoName,
 		"path":   "test-dir/test-file.txt",
-		"branch": "test-branch",
+		"branch": testBranch,
 	}
 
 	t.Logf("Getting file contents in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getFileContentsRequest)
 	require.NoError(t, err, "expected to call 'get_file_contents' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	embeddedResource, ok := resp.Content[1].(mcp.EmbeddedResource)
 	require.True(t, ok, "expected content to be of type EmbeddedResource")
@@ -706,7 +739,7 @@ func TestDirectoryDeletion(t *testing.T) {
 	textResource, ok := embeddedResource.Resource.(mcp.TextResourceContents)
 	require.True(t, ok, "expected embedded resource to be of type TextResourceContents")
 
-	require.Equal(t, fmt.Sprintf("Created by e2e test %s", t.Name()), textResource.Text, "expected file content to match")
+	require.Equal(t, fmt.Sprintf(createdByE2ETestFmt, t.Name()), textResource.Text, "expected file content to match")
 
 	// Delete the directory containing the file
 	deleteFileRequest := mcp.CallToolRequest{}
@@ -716,13 +749,13 @@ func TestDirectoryDeletion(t *testing.T) {
 		"repo":    repoName,
 		"path":    "test-dir",
 		"message": "Delete test directory",
-		"branch":  "test-branch",
+		"branch":  testBranch,
 	}
 
 	t.Logf("Deleting directory in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, deleteFileRequest)
 	require.NoError(t, err, "expected to call 'delete_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// See that there is a commit that removes the directory
 	listCommitsRequest := mcp.CallToolRequest{}
@@ -730,16 +763,16 @@ func TestDirectoryDeletion(t *testing.T) {
 	listCommitsRequest.Params.Arguments = map[string]any{
 		"owner": currentOwner,
 		"repo":  repoName,
-		"sha":   "test-branch", // can be SHA or branch, which is an unfortunate API design
+		"sha":   testBranch, // can be SHA or branch, which is an unfortunate API design
 	}
 
 	t.Logf("Listing commits in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, listCommitsRequest)
 	require.NoError(t, err, "expected to call 'list_commits' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedListCommitsText []struct {
 		SHA    string `json:"sha"`
@@ -752,7 +785,7 @@ func TestDirectoryDeletion(t *testing.T) {
 		} `json:"files"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedListCommitsText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.GreaterOrEqual(t, len(trimmedListCommitsText), 1, "expected to find at least one commit")
 
 	deletionCommit := trimmedListCommitsText[0]
@@ -770,10 +803,10 @@ func TestDirectoryDeletion(t *testing.T) {
 	t.Logf("Getting commit %s/%s:%s...", currentOwner, repoName, deletionCommit.SHA)
 	resp, err = mcpClient.CallTool(ctx, getCommitRequest)
 	require.NoError(t, err, "expected to call 'get_commit' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetCommitText struct {
 		Files []struct {
@@ -782,7 +815,7 @@ func TestDirectoryDeletion(t *testing.T) {
 		}
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetCommitText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.Len(t, trimmedGetCommitText.Files, 1, "expected to find one file change")
 	require.Equal(t, "test-dir/test-file.txt", trimmedGetCommitText.Files[0].Filename, "expected filename to match")
 	require.Equal(t, 1, trimmedGetCommitText.Files[0].Deletions, "expected one deletion")
@@ -791,7 +824,7 @@ func TestDirectoryDeletion(t *testing.T) {
 func TestRequestCopilotReview(t *testing.T) {
 	t.Parallel()
 
-	if getE2EHost() != "" && getE2EHost() != "https://github.com" {
+	if getE2EHost() != "" && getE2EHost() != githubURL {
 		t.Skip("Skipping test because the host does not support copilot reviews")
 	}
 
@@ -802,27 +835,27 @@ func TestRequestCopilotReview(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -831,18 +864,18 @@ func TestRequestCopilotReview(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'create_repository' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateRepoSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := gogithub.NewClient(nil).WithAuthToken(getE2EToken(t))
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -851,14 +884,14 @@ func TestRequestCopilotReview(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -866,25 +899,25 @@ func TestRequestCopilotReview(t *testing.T) {
 	commitRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"path":    testFileName,
+		"content": fmt.Sprintf(createdByE2ETestFmt, t.Name()),
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedCommitText struct {
 		SHA string `json:"sha"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedCommitText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	commitId := trimmedCommitText.SHA
 
 	// Create a pull request
@@ -893,17 +926,17 @@ func TestRequestCopilotReview(t *testing.T) {
 	prRequest.Params.Arguments = map[string]any{
 		"owner":    currentOwner,
 		"repo":     repoName,
-		"title":    "Test PR",
-		"body":     "This is a test PR",
-		"head":     "test-branch",
+		"title":    testPRTitle,
+		"body":     testPRBody,
+		"head":     testBranch,
 		"base":     "main",
 		"commitId": commitId,
 	}
 
-	t.Logf("Creating pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingPRFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, prRequest)
-	require.NoError(t, err, "expected to call 'create_pull_request' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreatePRSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Request a copilot review
 	requestCopilotReviewRequest := mcp.CallToolRequest{}
@@ -917,16 +950,16 @@ func TestRequestCopilotReview(t *testing.T) {
 	t.Logf("Requesting Copilot review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, requestCopilotReviewRequest)
 	require.NoError(t, err, "expected to call 'request_copilot_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 	require.Equal(t, "", textContent.Text, "expected content to be empty")
 
 	// Finally, get requested reviews and see copilot is in there
 	// MCP Server doesn't support requesting reviews yet, but we can use the GitHub Client
 	ghClient := gogithub.NewClient(nil).WithAuthToken(getE2EToken(t))
-	t.Logf("Getting reviews for pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logGettingPRReviewsFmt, currentOwner, repoName)
 	reviewRequests, _, err := ghClient.PullRequests.ListReviewers(context.Background(), currentOwner, repoName, 1, nil)
 	require.NoError(t, err, "expected to get review requests successfully")
 
@@ -939,7 +972,7 @@ func TestRequestCopilotReview(t *testing.T) {
 func TestAssignCopilotToIssue(t *testing.T) {
 	t.Parallel()
 
-	if getE2EHost() != "" && getE2EHost() != "https://github.com" {
+	if getE2EHost() != "" && getE2EHost() != githubURL {
 		t.Skip("Skipping test because the host does not support copilot being assigned to issues")
 	}
 
@@ -950,27 +983,27 @@ func TestAssignCopilotToIssue(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -979,18 +1012,18 @@ func TestAssignCopilotToIssue(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'create_repository' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateRepoSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create an issue
@@ -1005,7 +1038,7 @@ func TestAssignCopilotToIssue(t *testing.T) {
 	t.Logf("Creating issue in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createIssueRequest)
 	require.NoError(t, err, "expected to call 'create_issue' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Assign copilot to the issue
 	assignCopilotRequest := mcp.CallToolRequest{}
@@ -1021,14 +1054,14 @@ func TestAssignCopilotToIssue(t *testing.T) {
 	require.NoError(t, err, "expected to call 'assign_copilot_to_issue' tool successfully")
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	possibleExpectedFailure := "copilot isn't available as an assignee for this issue. Please inform the user to visit https://docs.github.com/en/copilot/using-github-copilot/using-copilot-coding-agent-to-work-on-tasks/about-assigning-tasks-to-copilot for more information."
 	if resp.IsError && textContent.Text == possibleExpectedFailure {
 		t.Skip("skipping because copilot wasn't available as an assignee on this issue, it's likely that the owner doesn't have copilot enabled in their settings")
 	}
 
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	require.Equal(t, "successfully assigned copilot to issue", textContent.Text)
 
@@ -1053,27 +1086,27 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -1082,18 +1115,18 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -1102,14 +1135,14 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -1117,19 +1150,19 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 	commitRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"path":    testFileName,
+		"content": fmt.Sprintf(createdByE2ETestFmt, t.Name()),
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedCommitText struct {
 		Commit struct {
@@ -1137,7 +1170,7 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 		} `json:"commit"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedCommitText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	commitID := trimmedCommitText.Commit.SHA
 
 	// Create a pull request
@@ -1146,16 +1179,16 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 	prRequest.Params.Arguments = map[string]any{
 		"owner": currentOwner,
 		"repo":  repoName,
-		"title": "Test PR",
-		"body":  "This is a test PR",
-		"head":  "test-branch",
+		"title": testPRTitle,
+		"body":  testPRBody,
+		"head":  testBranch,
 		"base":  "main",
 	}
 
-	t.Logf("Creating pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingPRFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, prRequest)
-	require.NoError(t, err, "expected to call 'create_pull_request' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreatePRSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create and submit a review
 	createAndSubmitReviewRequest := mcp.CallToolRequest{}
@@ -1172,7 +1205,7 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 	t.Logf("Creating and submitting review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createAndSubmitReviewRequest)
 	require.NoError(t, err, "expected to call 'create_and_submit_pull_request_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Finally, get the list of reviews and see that our review has been submitted
 	getPullRequestsReview := mcp.CallToolRequest{}
@@ -1183,19 +1216,19 @@ func TestPullRequestAtomicCreateAndSubmit(t *testing.T) {
 		"pullNumber": 1,
 	}
 
-	t.Logf("Getting reviews for pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logGettingPRReviewsFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getPullRequestsReview)
-	require.NoError(t, err, "expected to call 'get_pull_request_reviews' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetPRReviewsSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var reviews []struct {
 		State string `json:"state"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &reviews)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	// Check that there is one review
 	require.Len(t, reviews, 1, "expected to find one review")
@@ -1213,27 +1246,27 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -1242,18 +1275,18 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'create_repository' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateRepoSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -1262,14 +1295,14 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -1277,19 +1310,19 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	commitRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
+		"path":    testFileName,
 		"content": fmt.Sprintf("Created by e2e test %s\nwith multiple lines", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedCommitText struct {
 		Commit struct {
@@ -1297,7 +1330,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		} `json:"commit"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedCommitText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	commitId := trimmedCommitText.Commit.SHA
 
 	// Create a pull request
@@ -1306,16 +1339,16 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	prRequest.Params.Arguments = map[string]any{
 		"owner": currentOwner,
 		"repo":  repoName,
-		"title": "Test PR",
-		"body":  "This is a test PR",
-		"head":  "test-branch",
+		"title": testPRTitle,
+		"body":  testPRBody,
+		"head":  testBranch,
 		"base":  "main",
 	}
 
-	t.Logf("Creating pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingPRFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, prRequest)
-	require.NoError(t, err, "expected to call 'create_pull_request' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreatePRSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a review for the pull request, but we can't approve it
 	// because the current owner also owns the PR.
@@ -1330,10 +1363,10 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	t.Logf("Creating pending review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createPendingPullRequestReviewRequest)
 	require.NoError(t, err, "expected to call 'create_pending_pull_request_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 	require.Equal(t, "pending pull request created", textContent.Text)
 
 	// Add a file review comment
@@ -1343,7 +1376,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"owner":       currentOwner,
 		"repo":        repoName,
 		"pullNumber":  1,
-		"path":        "test-file.txt",
+		"path":        testFileName,
 		"subjectType": "FILE",
 		"body":        "File review comment",
 	}
@@ -1351,7 +1384,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	t.Logf("Adding file review comment to pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, addFileReviewCommentRequest)
 	require.NoError(t, err, "expected to call 'add_pull_request_review_comment_to_pending_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Add a single line review comment
 	addSingleLineReviewCommentRequest := mcp.CallToolRequest{}
@@ -1360,7 +1393,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"owner":       currentOwner,
 		"repo":        repoName,
 		"pullNumber":  1,
-		"path":        "test-file.txt",
+		"path":        testFileName,
 		"subjectType": "LINE",
 		"body":        "Single line review comment",
 		"line":        1,
@@ -1371,7 +1404,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	t.Logf("Adding single line review comment to pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, addSingleLineReviewCommentRequest)
 	require.NoError(t, err, "expected to call 'add_pull_request_review_comment_to_pending_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Add a multiline review comment
 	addMultilineReviewCommentRequest := mcp.CallToolRequest{}
@@ -1380,7 +1413,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"owner":       currentOwner,
 		"repo":        repoName,
 		"pullNumber":  1,
-		"path":        "test-file.txt",
+		"path":        testFileName,
 		"subjectType": "LINE",
 		"body":        "Multiline review comment",
 		"startLine":   1,
@@ -1393,7 +1426,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	t.Logf("Adding multi line review comment to pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, addMultilineReviewCommentRequest)
 	require.NoError(t, err, "expected to call 'add_pull_request_review_comment_to_pending_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Submit the review
 	submitReviewRequest := mcp.CallToolRequest{}
@@ -1409,7 +1442,7 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 	t.Logf("Submitting review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, submitReviewRequest)
 	require.NoError(t, err, "expected to call 'submit_pending_pull_request_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Finally, get the review and see that it has been created
 	getPullRequestsReview := mcp.CallToolRequest{}
@@ -1420,20 +1453,20 @@ func TestPullRequestReviewCommentSubmit(t *testing.T) {
 		"pullNumber": 1,
 	}
 
-	t.Logf("Getting reviews for pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logGettingPRReviewsFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getPullRequestsReview)
-	require.NoError(t, err, "expected to call 'get_pull_request_reviews' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetPRReviewsSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var reviews []struct {
 		ID    int    `json:"id"`
 		State string `json:"state"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &reviews)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	// Check that there is one review
 	require.Len(t, reviews, 1, "expected to find one review")
@@ -1458,27 +1491,27 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	getMeRequest := mcp.CallToolRequest{}
 	getMeRequest.Params.Name = "get_me"
 
-	t.Log("Getting current user...")
+	t.Log(logGettingCurrentUser)
 	resp, err := mcpClient.CallTool(ctx, getMeRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
-	require.False(t, resp.IsError, "expected result not to be an error")
-	require.Len(t, resp.Content, 1, "expected content to have one item")
+	require.False(t, resp.IsError, msgResultNotError)
+	require.Len(t, resp.Content, 1, msgContentOneItem)
 
 	textContent, ok := resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var trimmedGetMeText struct {
 		Login string `json:"login"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &trimmedGetMeText)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	currentOwner := trimmedGetMeText.Login
 
 	// Then create a repository with a README (via autoInit)
-	repoName := fmt.Sprintf("github-mcp-server-e2e-%s-%d", t.Name(), time.Now().UnixMilli())
+	repoName := fmt.Sprintf(repoNameFmt, t.Name(), time.Now().UnixMilli())
 	createRepoRequest := mcp.CallToolRequest{}
 	createRepoRequest.Params.Name = "create_repository"
 	createRepoRequest.Params.Arguments = map[string]any{
@@ -1487,18 +1520,18 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 		"autoInit": true,
 	}
 
-	t.Logf("Creating repository %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingRepoFmt, currentOwner, repoName)
 	_, err = mcpClient.CallTool(ctx, createRepoRequest)
-	require.NoError(t, err, "expected to call 'get_me' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetMeSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Cleanup the repository after the test
 	t.Cleanup(func() {
 		// MCP Server doesn't support deletions, but we can use the GitHub Client
 		ghClient := getRESTClient(t)
-		t.Logf("Deleting repository %s/%s...", currentOwner, repoName)
+		t.Logf(logDeletingRepoFmt, currentOwner, repoName)
 		_, err := ghClient.Repositories.Delete(context.Background(), currentOwner, repoName)
-		require.NoError(t, err, "expected to delete repository successfully")
+		require.NoError(t, err, msgDeleteRepoSuccess)
 	})
 
 	// Create a branch on which to create a new commit
@@ -1507,14 +1540,14 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	createBranchRequest.Params.Arguments = map[string]any{
 		"owner":       currentOwner,
 		"repo":        repoName,
-		"branch":      "test-branch",
+		"branch":      testBranch,
 		"from_branch": "main",
 	}
 
-	t.Logf("Creating branch in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingBranchFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createBranchRequest)
-	require.NoError(t, err, "expected to call 'create_branch' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateBranchSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a commit with a new file
 	commitRequest := mcp.CallToolRequest{}
@@ -1522,16 +1555,16 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	commitRequest.Params.Arguments = map[string]any{
 		"owner":   currentOwner,
 		"repo":    repoName,
-		"path":    "test-file.txt",
-		"content": fmt.Sprintf("Created by e2e test %s", t.Name()),
-		"message": "Add test file",
-		"branch":  "test-branch",
+		"path":    testFileName,
+		"content": fmt.Sprintf(createdByE2ETestFmt, t.Name()),
+		"message": testCommitMessage,
+		"branch":  testBranch,
 	}
 
-	t.Logf("Creating commit with new file in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingCommitFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, commitRequest)
-	require.NoError(t, err, "expected to call 'create_or_update_file' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreateOrUpdateFileSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a pull request
 	prRequest := mcp.CallToolRequest{}
@@ -1539,16 +1572,16 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	prRequest.Params.Arguments = map[string]any{
 		"owner": currentOwner,
 		"repo":  repoName,
-		"title": "Test PR",
-		"body":  "This is a test PR",
-		"head":  "test-branch",
+		"title": testPRTitle,
+		"body":  testPRBody,
+		"head":  testBranch,
 		"base":  "main",
 	}
 
-	t.Logf("Creating pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logCreatingPRFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, prRequest)
-	require.NoError(t, err, "expected to call 'create_pull_request' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgCreatePRSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// Create a review for the pull request, but we can't approve it
 	// because the current owner also owns the PR.
@@ -1563,10 +1596,10 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	t.Logf("Creating pending review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, createPendingPullRequestReviewRequest)
 	require.NoError(t, err, "expected to call 'create_pending_pull_request_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 	require.Equal(t, "pending pull request created", textContent.Text)
 
 	// See that there is a pending review
@@ -1578,19 +1611,19 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 		"pullNumber": 1,
 	}
 
-	t.Logf("Getting reviews for pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logGettingPRReviewsFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getPullRequestsReview)
-	require.NoError(t, err, "expected to call 'get_pull_request_reviews' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetPRReviewsSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var reviews []struct {
 		State string `json:"state"`
 	}
 	err = json.Unmarshal([]byte(textContent.Text), &reviews)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 
 	// Check that there is one review
 	require.Len(t, reviews, 1, "expected to find one review")
@@ -1608,19 +1641,19 @@ func TestPullRequestReviewDeletion(t *testing.T) {
 	t.Logf("Deleting review for pull request in %s/%s...", currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, deleteReviewRequest)
 	require.NoError(t, err, "expected to call 'delete_pending_pull_request_review' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	// See that there are no reviews
-	t.Logf("Getting reviews for pull request in %s/%s...", currentOwner, repoName)
+	t.Logf(logGettingPRReviewsFmt, currentOwner, repoName)
 	resp, err = mcpClient.CallTool(ctx, getPullRequestsReview)
-	require.NoError(t, err, "expected to call 'get_pull_request_reviews' tool successfully")
-	require.False(t, resp.IsError, fmt.Sprintf("expected result not to be an error: %+v", resp))
+	require.NoError(t, err, msgGetPRReviewsSuccess)
+	require.False(t, resp.IsError, fmt.Sprintf(msgResultNotErrorFmt, resp))
 
 	textContent, ok = resp.Content[0].(mcp.TextContent)
-	require.True(t, ok, "expected content to be of type TextContent")
+	require.True(t, ok, msgContentTextType)
 
 	var noReviews []struct{}
 	err = json.Unmarshal([]byte(textContent.Text), &noReviews)
-	require.NoError(t, err, "expected to unmarshal text content successfully")
+	require.NoError(t, err, msgUnmarshalSuccess)
 	require.Len(t, noReviews, 0, "expected to find no reviews")
 }
