@@ -100,13 +100,18 @@ func GetCommit(getClient GetClientFn, t translations.TranslationHelperFunc) (too
 		}
 }
 
-// ListCommits creates a tool to get commits of a branch in a repository.
-func listCommitsParseParams(request mcp.CallToolRequest) (owner, repo, sha, author string, pagination PaginationParams, err error) {
+func requiredOwnerRepo(request mcp.CallToolRequest) (owner, repo string, err error) {
 	owner, err = RequiredParam[string](request, "owner")
 	if err != nil {
 		return
 	}
 	repo, err = RequiredParam[string](request, "repo")
+	return
+}
+
+// ListCommits creates a tool to get commits of a branch in a repository.
+func listCommitsParseParams(request mcp.CallToolRequest) (owner, repo, sha, author string, pagination PaginationParams, err error) {
+	owner, repo, err = requiredOwnerRepo(request)
 	if err != nil {
 		return
 	}
@@ -458,11 +463,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 
 // GetFileContents creates a tool to get the contents of a file or directory from a GitHub repository.
 func getFileContentsParseParams(request mcp.CallToolRequest) (owner, repo, path, ref, sha string, err error) {
-	owner, err = RequiredParam[string](request, "owner")
-	if err != nil {
-		return
-	}
-	repo, err = RequiredParam[string](request, "repo")
+	owner, repo, err = requiredOwnerRepo(request)
 	if err != nil {
 		return
 	}
