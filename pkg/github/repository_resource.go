@@ -14,7 +14,6 @@ import (
 
 	"github.com/github/github-mcp-server/pkg/raw"
 	"github.com/github/github-mcp-server/pkg/translations"
-	"github.com/google/go-github/v72/github"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -67,72 +66,29 @@ func GetRepositoryResourcePrContent(getClient GetClientFn, getRawClient raw.GetR
 // RepositoryResourceContentsHandler returns a handler function for repository content requests.
 func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.GetRawClientFn) func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
 	return func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-		// the matcher will give []string with one element
-		// https://github.com/mark3labs/mcp-go/pull/54
-		o, ok := request.Params.Arguments["owner"].([]string)
-		if !ok || len(o) == 0 {
-			return nil, errors.New("owner is required")
-		}
-		owner := o[0]
-
-		r, ok := request.Params.Arguments["repo"].([]string)
-		if !ok || len(r) == 0 {
-			return nil, errors.New("repo is required")
-		}
-		repo := r[0]
-
-		// path should be a joined list of the path parts
-		path := ""
-		p, ok := request.Params.Arguments["path"].([]string)
-		if ok {
-			path = strings.Join(p, "/")
+		owner, err := requiredStringArg(request.Params.Arguments, "owner")
+		if err != nil {
+			return nil, err
 		}
 
-		opts := &github.RepositoryContentGetOptions{}
-		rawOpts := &raw.ContentOpts{}
-
-		sha, ok := request.Params.Arguments["sha"].([]string)
-		if ok && len(sha) > 0 {
-			opts.Ref = sha[0]
-			rawOpts.SHA = sha[0]
+		repo, err := requiredStringArg(request.Params.Arguments, "repo")
+		if err != nil {
+			return nil, err
 		}
 
-		branch, ok := request.Params.Arguments["branch"].([]string)
-		if ok && len(branch) > 0 {
-			opts.Ref = "refs/heads/" + branch[0]
-			rawOpts.Ref = "refs/heads/" + branch[0]
-		}
+		p, _ := request.Params.Arguments["path"].([]string)
+		path := strings.Join(p, "/")
 
-		tag, ok := request.Params.Arguments["tag"].([]string)
-		if ok && len(tag) > 0 {
-			opts.Ref = "refs/tags/" + tag[0]
-			rawOpts.Ref = "refs/tags/" + tag[0]
-		}
-		prNumber, ok := request.Params.Arguments["prNumber"].([]string)
-		if ok && len(prNumber) > 0 {
-			// fetch the PR from the API to get the latest commit and use SHA
-			githubClient, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			prNum, err := strconv.Atoi(prNumber[0])
-			if err != nil {
-				return nil, fmt.Errorf("invalid pull request number: %w", err)
-			}
-			pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get pull request: %w", err)
-			}
-			sha := pr.GetHead().GetSHA()
-			rawOpts.SHA = sha
-			opts.Ref = sha
-		}
-		//  if it's a directory
 		if path == "" || strings.HasSuffix(path, "/") {
 			return nil, fmt.Errorf("directories are not supported: %s", path)
 		}
-		rawClient, err := getRawClient(ctx)
 
+		rawOpts, err := resolveContentRef(ctx, getClient, request.Params.Arguments, owner, repo)
+		if err != nil {
+			return nil, err
+		}
+
+		rawClient, err := getRawClient(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get GitHub raw content client: %w", err)
 		}
@@ -141,52 +97,122 @@ func RepositoryResourceContentsHandler(getClient GetClientFn, getRawClient raw.G
 		defer func() {
 			_ = resp.Body.Close()
 		}()
-		// If the raw content is not found, we will fall back to the GitHub API (in case it is a directory)
-		switch {
-		case err != nil:
+		if err != nil {
 			return nil, fmt.Errorf("failed to get raw content: %w", err)
-		case resp.StatusCode == http.StatusOK:
-			ext := filepath.Ext(path)
-			mimeType := resp.Header.Get("Content-Type")
-			if ext == ".md" {
-				mimeType = "text/markdown"
-			} else if mimeType == "" {
-				mimeType = mime.TypeByExtension(ext)
-			}
-
-			content, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read file content: %w", err)
-			}
-
-			switch {
-			case strings.HasPrefix(mimeType, "text"), strings.HasPrefix(mimeType, "application"):
-				return []mcp.ResourceContents{
-					mcp.TextResourceContents{
-						URI:      request.Params.URI,
-						MIMEType: mimeType,
-						Text:     string(content),
-					},
-				}, nil
-			default:
-				return []mcp.ResourceContents{
-					mcp.BlobResourceContents{
-						URI:      request.Params.URI,
-						MIMEType: mimeType,
-						Blob:     base64.StdEncoding.EncodeToString(content),
-					},
-				}, nil
-			}
-		case resp.StatusCode != http.StatusNotFound:
-			// If we got a response but it is not 200 OK, we return an error
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read response body: %w", err)
-			}
-			return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
-		default:
-			// This should be unreachable because GetContents should return an error if neither file nor directory content is found.
-			return nil, errors.New("404 Not Found")
 		}
+
+		if resp.StatusCode != http.StatusOK {
+			return handleNonOKResponse(resp)
+		}
+
+		return buildResourceContents(request.Params.URI, path, resp)
 	}
+}
+
+func requiredStringArg(args map[string]any, key string) (string, error) {
+	v, ok := args[key].([]string)
+	if !ok || len(v) == 0 {
+		return "", fmt.Errorf("%s is required", key)
+	}
+	return v[0], nil
+}
+
+func optionalStringArg(args map[string]any, key string) string {
+	v, ok := args[key].([]string)
+	if ok && len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
+func resolveContentRef(ctx context.Context, getClient GetClientFn, args map[string]any, owner, repo string) (*raw.ContentOpts, error) {
+	rawOpts := &raw.ContentOpts{}
+
+	if sha := optionalStringArg(args, "sha"); sha != "" {
+		rawOpts.SHA = sha
+	}
+
+	if branch := optionalStringArg(args, "branch"); branch != "" {
+		rawOpts.Ref = "refs/heads/" + branch
+	}
+
+	if tag := optionalStringArg(args, "tag"); tag != "" {
+		rawOpts.Ref = "refs/tags/" + tag
+	}
+
+	prNumber := optionalStringArg(args, "prNumber")
+	if prNumber != "" {
+		sha, err := resolvePRToSHA(ctx, getClient, owner, repo, prNumber)
+		if err != nil {
+			return nil, err
+		}
+		rawOpts.SHA = sha
+	}
+
+	return rawOpts, nil
+}
+
+func resolvePRToSHA(ctx context.Context, getClient GetClientFn, owner, repo, prNumber string) (string, error) {
+	githubClient, err := getClient(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get GitHub client: %w", err)
+	}
+	prNum, err := strconv.Atoi(prNumber)
+	if err != nil {
+		return "", fmt.Errorf("invalid pull request number: %w", err)
+	}
+	pr, _, err := githubClient.PullRequests.Get(ctx, owner, repo, prNum)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pull request: %w", err)
+	}
+	return pr.GetHead().GetSHA(), nil
+}
+
+func handleNonOKResponse(resp *http.Response) ([]mcp.ResourceContents, error) {
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, errors.New("404 Not Found")
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	return nil, fmt.Errorf("failed to fetch raw content: %s", string(body))
+}
+
+func inferContentType(path string, contentTypeHeader string) string {
+	ext := filepath.Ext(path)
+	if ext == ".md" {
+		return "text/markdown"
+	}
+	if contentTypeHeader != "" {
+		return contentTypeHeader
+	}
+	return mime.TypeByExtension(ext)
+}
+
+func buildResourceContents(uri string, path string, resp *http.Response) ([]mcp.ResourceContents, error) {
+	mimeType := inferContentType(path, resp.Header.Get("Content-Type"))
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file content: %w", err)
+	}
+
+	if strings.HasPrefix(mimeType, "text") || strings.HasPrefix(mimeType, "application") {
+		return []mcp.ResourceContents{
+			mcp.TextResourceContents{
+				URI:      uri,
+				MIMEType: mimeType,
+				Text:     string(content),
+			},
+		}, nil
+	}
+
+	return []mcp.ResourceContents{
+		mcp.BlobResourceContents{
+			URI:      uri,
+			MIMEType: mimeType,
+			Blob:     base64.StdEncoding.EncodeToString(content),
+		},
+	}, nil
 }
