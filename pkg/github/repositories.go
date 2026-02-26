@@ -119,69 +119,75 @@ func ListCommits(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			WithPagination(),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			sha, err := OptionalParam[string](request, "sha")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			author, err := OptionalParam[string](request, "author")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			// Set default perPage to 30 if not provided
-			perPage := pagination.perPage
-			if perPage == 0 {
-				perPage = 30
-			}
-			opts := &github.CommitsListOptions{
-				SHA:    sha,
-				Author: author,
-				ListOptions: github.ListOptions{
-					Page:    pagination.page,
-					PerPage: perPage,
-				},
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					fmt.Sprintf("failed to list commits: %s", sha),
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != 200 {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(commits)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+			return handleListCommits(ctx, request, getClient)
 		}
+}
+
+// handleListCommits contains the handler logic for ListCommits, extracted to
+// reduce cognitive complexity by avoiding deep nesting inside a closure.
+func handleListCommits(ctx context.Context, request mcp.CallToolRequest, getClient GetClientFn) (*mcp.CallToolResult, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	sha, err := OptionalParam[string](request, "sha")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	author, err := OptionalParam[string](request, "author")
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	pagination, err := OptionalPaginationParams(request)
+	if err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	// Set default perPage to 30 if not provided
+	perPage := pagination.perPage
+	if perPage == 0 {
+		perPage = 30
+	}
+	opts := &github.CommitsListOptions{
+		SHA:    sha,
+		Author: author,
+		ListOptions: github.ListOptions{
+			Page:    pagination.page,
+			PerPage: perPage,
+		},
+	}
+
+	client, err := getClient(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+	}
+	commits, resp, err := client.Repositories.ListCommits(ctx, owner, repo, opts)
+	if err != nil {
+		return ghErrors.NewGitHubAPIErrorResponse(ctx,
+			fmt.Sprintf("failed to list commits: %s", sha),
+			resp,
+			err,
+		), nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		return mcp.NewToolResultError(fmt.Sprintf("failed to list commits: %s", string(body))), nil
+	}
+
+	r, err := json.Marshal(commits)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
+
+	return mcp.NewToolResultText(string(r)), nil
 }
 
 // ListBranches creates a tool to list branches in a GitHub repository.
