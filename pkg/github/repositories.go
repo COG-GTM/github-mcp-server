@@ -446,16 +446,18 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 		}
 }
 
+const repoScheme = "repo://"
+
 // buildResourceURI constructs a resource URI for a file in a repository based on
 // the available ref or sha identifiers.
 func buildResourceURI(owner, repo, sha, ref, path string) (string, error) {
 	switch {
 	case sha != "":
-		return url.JoinPath("repo://", owner, repo, "sha", sha, "contents", path)
+		return url.JoinPath(repoScheme, owner, repo, "sha", sha, "contents", path)
 	case ref != "":
-		return url.JoinPath("repo://", owner, repo, ref, "contents", path)
+		return url.JoinPath(repoScheme, owner, repo, ref, "contents", path)
 	default:
-		return url.JoinPath("repo://", owner, repo, "contents", path)
+		return url.JoinPath(repoScheme, owner, repo, "contents", path)
 	}
 }
 
@@ -490,7 +492,7 @@ func resolvePRRef(ctx context.Context, getClient GetClientFn, owner, repo, ref, 
 // fetchRawFileContents attempts to fetch file contents from the GitHub raw content API
 // and returns the result. If the raw content is not found (non-200 status), it returns
 // nil to indicate the caller should fall back to the regular API.
-func fetchRawFileContents(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path, sha, ref string, rawOpts *raw.ContentOpts) (*mcp.CallToolResult, error) {
+func fetchRawFileContents(ctx context.Context, getRawClient raw.GetRawClientFn, owner, repo, path string, rawOpts *raw.ContentOpts) (*mcp.CallToolResult, error) {
 	rawClient, err := getRawClient(ctx)
 	if err != nil {
 		return mcp.NewToolResultError("failed to get GitHub raw content client"), nil
@@ -513,7 +515,7 @@ func fetchRawFileContents(ctx context.Context, getRawClient raw.GetRawClientFn, 
 	}
 	contentType := resp.Header.Get("Content-Type")
 
-	resourceURI, err := buildResourceURI(owner, repo, sha, ref, path)
+	resourceURI, err := buildResourceURI(owner, repo, rawOpts.SHA, rawOpts.Ref, path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resource URI: %w", err)
 	}
@@ -594,7 +596,7 @@ func GetFileContents(getClient GetClientFn, getRawClient raw.GetRawClientFn, t t
 
 			// If the path is (most likely) not to be a directory, we will first try to get the raw content from the GitHub raw content API.
 			if path != "" && !strings.HasSuffix(path, "/") {
-				result, err := fetchRawFileContents(ctx, getRawClient, owner, repo, path, sha, ref, rawOpts)
+				result, err := fetchRawFileContents(ctx, getRawClient, owner, repo, path, rawOpts)
 				if err != nil {
 					return nil, err
 				}
