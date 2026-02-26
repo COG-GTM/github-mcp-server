@@ -294,6 +294,24 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 		}
 }
 
+// validatePaginationParams checks that the pagination parameters are used in
+// valid combinations and returns an error message if they are not.
+func validatePaginationParams(first, last int32, after, before string) string {
+	if first != 0 && last != 0 {
+		return "only one of 'first' or 'last' may be specified"
+	}
+	if after != "" && before != "" {
+		return "only one of 'after' or 'before' may be specified"
+	}
+	if after != "" && last != 0 {
+		return "'after' cannot be used with 'last'. Did you mean to use 'before' instead?"
+	}
+	if before != "" && first != 0 {
+		return "'before' cannot be used with 'first'. Did you mean to use 'after' instead?"
+	}
+	return ""
+}
+
 func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussion_categories",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSION_CATEGORIES_DESCRIPTION", "List discussion categories with their id and name, for a repository")),
@@ -341,17 +359,8 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 
 			// Validate pagination parameters
-			if params.First != 0 && params.Last != 0 {
-				return mcp.NewToolResultError("only one of 'first' or 'last' may be specified"), nil
-			}
-			if params.After != "" && params.Before != "" {
-				return mcp.NewToolResultError("only one of 'after' or 'before' may be specified"), nil
-			}
-			if params.After != "" && params.Last != 0 {
-				return mcp.NewToolResultError("'after' cannot be used with 'last'. Did you mean to use 'before' instead?"), nil
-			}
-			if params.Before != "" && params.First != 0 {
-				return mcp.NewToolResultError("'before' cannot be used with 'first'. Did you mean to use 'after' instead?"), nil
+			if errMsg := validatePaginationParams(params.First, params.Last, params.After, params.Before); errMsg != "" {
+				return mcp.NewToolResultError(errMsg), nil
 			}
 
 			client, err := getGQLClient(ctx)
