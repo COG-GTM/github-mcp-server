@@ -556,6 +556,76 @@ func ListWorkflowJobs(getClient GetClientFn, t translations.TranslationHelperFun
 		}
 }
 
+// jobLogsParams holds the parsed and validated parameters for the GetJobLogs tool.
+type jobLogsParams struct {
+	owner         string
+	repo          string
+	jobID         int
+	runID         int
+	failedOnly    bool
+	returnContent bool
+	tailLines     int
+}
+
+// parseJobLogsParams extracts and validates all parameters for the GetJobLogs handler.
+func parseJobLogsParams(request mcp.CallToolRequest) (*jobLogsParams, error) {
+	owner, err := RequiredParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := RequiredParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+
+	jobID, err := OptionalIntParam(request, "job_id")
+	if err != nil {
+		return nil, err
+	}
+	runID, err := OptionalIntParam(request, "run_id")
+	if err != nil {
+		return nil, err
+	}
+	failedOnly, err := OptionalParam[bool](request, "failed_only")
+	if err != nil {
+		return nil, err
+	}
+	returnContent, err := OptionalParam[bool](request, "return_content")
+	if err != nil {
+		return nil, err
+	}
+	tailLines, err := OptionalIntParam(request, "tail_lines")
+	if err != nil {
+		return nil, err
+	}
+
+	// Default to 500 lines if not specified
+	if tailLines == 0 {
+		tailLines = 500
+	}
+
+	return &jobLogsParams{
+		owner:         owner,
+		repo:          repo,
+		jobID:         jobID,
+		runID:         runID,
+		failedOnly:    failedOnly,
+		returnContent: returnContent,
+		tailLines:     tailLines,
+	}, nil
+}
+
+// validateJobLogsParams checks that the parameter combinations are valid.
+func validateJobLogsParams(p *jobLogsParams) error {
+	if p.failedOnly && p.runID == 0 {
+		return fmt.Errorf("run_id is required when failed_only is true")
+	}
+	if !p.failedOnly && p.jobID == 0 {
+		return fmt.Errorf("job_id is required when failed_only is false")
+	}
+	return nil
+}
+
 // GetJobLogs creates a tool to download logs for a specific workflow job or efficiently get all failed job logs for a workflow run
 func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("get_job_logs",
@@ -590,39 +660,13 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
+			p, err := parseJobLogsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Get optional parameters
-			jobID, err := OptionalIntParam(request, "job_id")
-			if err != nil {
+			if err := validateJobLogsParams(p); err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
-			}
-			runID, err := OptionalIntParam(request, "run_id")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			failedOnly, err := OptionalParam[bool](request, "failed_only")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			returnContent, err := OptionalParam[bool](request, "return_content")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			tailLines, err := OptionalIntParam(request, "tail_lines")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			// Default to 500 lines if not specified
-			if tailLines == 0 {
-				tailLines = 500
 			}
 
 			client, err := getClient(ctx)
@@ -630,23 +674,10 @@ func GetJobLogs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 
-			// Validate parameters
-			if failedOnly && runID == 0 {
-				return mcp.NewToolResultError("run_id is required when failed_only is true"), nil
+			if p.failedOnly {
+				return handleFailedJobLogs(ctx, client, p.owner, p.repo, int64(p.runID), p.returnContent, p.tailLines)
 			}
-			if !failedOnly && jobID == 0 {
-				return mcp.NewToolResultError("job_id is required when failed_only is false"), nil
-			}
-
-			if failedOnly && runID > 0 {
-				// Handle failed-only mode: get logs for all failed jobs in the workflow run
-				return handleFailedJobLogs(ctx, client, owner, repo, int64(runID), returnContent, tailLines)
-			} else if jobID > 0 {
-				// Handle single job mode
-				return handleSingleJobLogs(ctx, client, owner, repo, int64(jobID), returnContent, tailLines)
-			}
-
-			return mcp.NewToolResultError("Either job_id must be provided for single job logs, or run_id with failed_only=true for failed job logs"), nil
+			return handleSingleJobLogs(ctx, client, p.owner, p.repo, int64(p.jobID), p.returnContent, p.tailLines)
 		}
 }
 
