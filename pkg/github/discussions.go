@@ -13,6 +13,9 @@ import (
 	"github.com/shurcooL/githubv4"
 )
 
+// categoryFmtStr is the format string used to label discussion categories.
+const categoryFmtStr = "category:%s"
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -98,7 +101,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
 						Labels: []*github.Label{
 							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+								Name: github.Ptr(fmt.Sprintf(categoryFmtStr, string(n.Category.Name))),
 							},
 						},
 					}
@@ -138,7 +141,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
 						Labels: []*github.Label{
 							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+								Name: github.Ptr(fmt.Sprintf(categoryFmtStr, string(n.Category.Name))),
 							},
 						},
 					}
@@ -221,7 +224,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 				CreatedAt: &github.Timestamp{Time: d.CreatedAt.Time},
 				Labels: []*github.Label{
 					{
-						Name: github.Ptr(fmt.Sprintf("category:%s", string(d.Category.Name))),
+						Name: github.Ptr(fmt.Sprintf(categoryFmtStr, string(d.Category.Name))),
 					},
 				},
 			}
