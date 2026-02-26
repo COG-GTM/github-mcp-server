@@ -61,6 +61,25 @@ type discussionCategoriesConnection struct {
 	Nodes []discussionCategoryNode
 }
 
+// mapDiscussionNodesToIssues converts a slice of discussionNode into GitHub Issue objects.
+func mapDiscussionNodesToIssues(nodes []discussionNode) []*github.Issue {
+	issues := make([]*github.Issue, 0, len(nodes))
+	for _, n := range nodes {
+		issues = append(issues, &github.Issue{
+			Number:    github.Ptr(int(n.Number)),
+			Title:     github.Ptr(string(n.Title)),
+			HTMLURL:   github.Ptr(string(n.URL)),
+			CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
+			Labels: []*github.Label{
+				{
+					Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
+				},
+			},
+		})
+	}
+	return issues
+}
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -126,22 +145,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				if err := client.Query(ctx, &query, vars); err != nil {
 					return mcp.NewToolResultError(err.Error()), nil
 				}
-
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
-							},
-						},
-					}
-					discussions = append(discussions, di)
-				}
+				discussions = mapDiscussionNodesToIssues(query.Repository.Discussions.Nodes)
 			} else {
 				// Query without category filter
 				var query struct {
@@ -156,22 +160,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				if err := client.Query(ctx, &query, vars); err != nil {
 					return mcp.NewToolResultError(err.Error()), nil
 				}
-
-				// Map nodes to GitHub Issue objects
-				for _, n := range query.Repository.Discussions.Nodes {
-					di := &github.Issue{
-						Number:    github.Ptr(int(n.Number)),
-						Title:     github.Ptr(string(n.Title)),
-						HTMLURL:   github.Ptr(string(n.URL)),
-						CreatedAt: &github.Timestamp{Time: n.CreatedAt.Time},
-						Labels: []*github.Label{
-							{
-								Name: github.Ptr(fmt.Sprintf("category:%s", string(n.Category.Name))),
-							},
-						},
-					}
-					discussions = append(discussions, di)
-				}
+				discussions = mapDiscussionNodesToIssues(query.Repository.Discussions.Nodes)
 			}
 
 			// Marshal and return
