@@ -13,6 +13,10 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 )
 
+// descriptionSortOrder is a shared description for the "order" parameter
+// across search tools, extracted to satisfy SonarQube rule go:S1192.
+const descriptionSortOrder = "Sort order"
+
 // SearchRepositories creates a tool to search for GitHub repositories.
 func SearchRepositories(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("search_repositories",
@@ -91,7 +95,7 @@ func SearchCode(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 				mcp.Description("Sort field ('indexed' only)"),
 			),
 			mcp.WithString("order",
-				mcp.Description("Sort order"),
+				mcp.Description(descriptionSortOrder),
 				mcp.Enum("asc", "desc"),
 			),
 			WithPagination(),
@@ -274,7 +278,7 @@ func SearchUsers(getClient GetClientFn, t translations.TranslationHelperFunc) (t
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+			mcp.Description(descriptionSortOrder),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
@@ -298,7 +302,7 @@ func SearchOrgs(getClient GetClientFn, t translations.TranslationHelperFunc) (to
 			mcp.Enum("followers", "repositories", "joined"),
 		),
 		mcp.WithString("order",
-			mcp.Description("Sort order"),
+			mcp.Description(descriptionSortOrder),
 			mcp.Enum("asc", "desc"),
 		),
 		WithPagination(),
