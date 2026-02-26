@@ -15,6 +15,52 @@ import (
 
 const errFailedToGetGQLClient = "failed to get GitHub GQL client: %v"
 
+type discussionCategory struct {
+	Name githubv4.String
+}
+
+type discussionNode struct {
+	Number    githubv4.Int
+	Title     githubv4.String
+	CreatedAt githubv4.DateTime
+	Category  discussionCategory `graphql:"category"`
+	URL       githubv4.String    `graphql:"url"`
+}
+
+type discussionsConnection struct {
+	Nodes []discussionNode
+}
+
+type discussionDetails struct {
+	Number    githubv4.Int
+	Body      githubv4.String
+	State     githubv4.String
+	CreatedAt githubv4.DateTime
+	URL       githubv4.String    `graphql:"url"`
+	Category  discussionCategory `graphql:"category"`
+}
+
+type discussionCommentNode struct {
+	Body githubv4.String
+}
+
+type discussionCommentsConnection struct {
+	Nodes []discussionCommentNode
+}
+
+type discussionCommentsQuery struct {
+	Comments discussionCommentsConnection `graphql:"comments(first:100)"`
+}
+
+type discussionCategoryNode struct {
+	ID   githubv4.ID
+	Name githubv4.String
+}
+
+type discussionCategoriesConnection struct {
+	Nodes []discussionCategoryNode
+}
+
 func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_discussions",
 			mcp.WithDescription(t("TOOL_LIST_DISCUSSIONS_DESCRIPTION", "List discussions for a repository")),
@@ -69,17 +115,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				// Query with category filter (server-side filtering)
 				var query struct {
 					Repository struct {
-						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
-						} `graphql:"discussions(first: 100, categoryId: $categoryId)"`
+						Discussions discussionsConnection `graphql:"discussions(first: 100, categoryId: $categoryId)"`
 					} `graphql:"repository(owner: $owner, name: $repo)"`
 				}
 				vars := map[string]interface{}{
@@ -110,17 +146,7 @@ func ListDiscussions(getGQLClient GetGQLClientFn, t translations.TranslationHelp
 				// Query without category filter
 				var query struct {
 					Repository struct {
-						Discussions struct {
-							Nodes []struct {
-								Number    githubv4.Int
-								Title     githubv4.String
-								CreatedAt githubv4.DateTime
-								Category  struct {
-									Name githubv4.String
-								} `graphql:"category"`
-								URL githubv4.String `graphql:"url"`
-							}
-						} `graphql:"discussions(first: 100)"`
+						Discussions discussionsConnection `graphql:"discussions(first: 100)"`
 					} `graphql:"repository(owner: $owner, name: $repo)"`
 				}
 				vars := map[string]interface{}{
@@ -194,16 +220,7 @@ func GetDiscussion(getGQLClient GetGQLClientFn, t translations.TranslationHelper
 
 			var q struct {
 				Repository struct {
-					Discussion struct {
-						Number    githubv4.Int
-						Body      githubv4.String
-						State     githubv4.String
-						CreatedAt githubv4.DateTime
-						URL       githubv4.String `graphql:"url"`
-						Category  struct {
-							Name githubv4.String
-						} `graphql:"category"`
-					} `graphql:"discussion(number: $discussionNumber)"`
+					Discussion discussionDetails `graphql:"discussion(number: $discussionNumber)"`
 				} `graphql:"repository(owner: $owner, name: $repo)"`
 			}
 			vars := map[string]interface{}{
@@ -265,13 +282,7 @@ func GetDiscussionComments(getGQLClient GetGQLClientFn, t translations.Translati
 
 			var q struct {
 				Repository struct {
-					Discussion struct {
-						Comments struct {
-							Nodes []struct {
-								Body githubv4.String
-							}
-						} `graphql:"comments(first:100)"`
-					} `graphql:"discussion(number: $discussionNumber)"`
+					Discussion discussionCommentsQuery `graphql:"discussion(number: $discussionNumber)"`
 				} `graphql:"repository(owner: $owner, name: $repo)"`
 			}
 			vars := map[string]interface{}{
@@ -362,12 +373,7 @@ func ListDiscussionCategories(getGQLClient GetGQLClientFn, t translations.Transl
 			}
 			var q struct {
 				Repository struct {
-					DiscussionCategories struct {
-						Nodes []struct {
-							ID   githubv4.ID
-							Name githubv4.String
-						}
-					} `graphql:"discussionCategories(first: 100)"`
+					DiscussionCategories discussionCategoriesConnection `graphql:"discussionCategories(first: 100)"`
 				} `graphql:"repository(owner: $owner, name: $repo)"`
 			}
 			vars := map[string]interface{}{
