@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const discussionNotFound = "discussion not found"
+
 var (
 	discussionsGeneral = []map[string]any{
 		{"number": 1, "title": "Discussion 1 title", "createdAt": "2023-01-01T00:00:00Z", "url": "https://github.com/owner/repo/discussions/1", "category": map[string]any{"name": "General"}},
@@ -248,10 +250,10 @@ func Test_GetDiscussion(t *testing.T) {
 			},
 		},
 		{
-			name:        "discussion not found",
-			response:    githubv4mock.ErrorResponse("discussion not found"),
+			name:        discussionNotFound,
+			response:    githubv4mock.ErrorResponse(discussionNotFound),
 			expectError: true,
-			errContains: "discussion not found",
+			errContains: discussionNotFound,
 		},
 	}
 	for _, tc := range tests {
