@@ -368,6 +368,65 @@ func CreateOrUpdateFile(getClient GetClientFn, t translations.TranslationHelperF
 		}
 }
 
+// createRepositoryHandler handles the actual creation of a GitHub repository.
+// Extracted from CreateRepository to reduce cognitive complexity.
+func createRepositoryHandler(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		name, err := RequiredParam[string](request, "name")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		description, err := OptionalParam[string](request, "description")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		private, err := OptionalParam[bool](request, "private")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		autoInit, err := OptionalParam[bool](request, "autoInit")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		repo := &github.Repository{
+			Name:        github.Ptr(name),
+			Description: github.Ptr(description),
+			Private:     github.Ptr(private),
+			AutoInit:    github.Ptr(autoInit),
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+		}
+		createdRepo, resp, err := client.Repositories.Create(ctx, "", repo)
+		if err != nil {
+			return ghErrors.NewGitHubAPIErrorResponse(ctx,
+				"failed to create repository",
+				resp,
+				err,
+			), nil
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusCreated {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read response body: %w", err)
+			}
+			return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
+		}
+
+		r, err := json.Marshal(createdRepo)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
+}
+
 // CreateRepository creates a tool to create a new GitHub repository.
 func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("create_repository",
@@ -390,60 +449,7 @@ func CreateRepository(getClient GetClientFn, t translations.TranslationHelperFun
 				mcp.Description("Initialize with README"),
 			),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			name, err := RequiredParam[string](request, "name")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			description, err := OptionalParam[string](request, "description")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			private, err := OptionalParam[bool](request, "private")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			autoInit, err := OptionalParam[bool](request, "autoInit")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			repo := &github.Repository{
-				Name:        github.Ptr(name),
-				Description: github.Ptr(description),
-				Private:     github.Ptr(private),
-				AutoInit:    github.Ptr(autoInit),
-			}
-
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			createdRepo, resp, err := client.Repositories.Create(ctx, "", repo)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to create repository",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusCreated {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to create repository: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(createdRepo)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
-		}
+		createRepositoryHandler(getClient)
 }
 
 // GetFileContents creates a tool to get the contents of a file or directory from a GitHub repository.
