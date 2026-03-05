@@ -37,7 +37,7 @@ type discussionNode struct {
 
 // mapDiscussionNodesToIssues converts a slice of discussionNode into GitHub Issue objects.
 func mapDiscussionNodesToIssues(nodes []discussionNode) []*github.Issue {
-	issues := make([]*github.Issue, 0, len(nodes))
+	var issues []*github.Issue
 	for _, n := range nodes {
 		issues = append(issues, &github.Issue{
 			Number:    github.Ptr(int(n.Number)),
