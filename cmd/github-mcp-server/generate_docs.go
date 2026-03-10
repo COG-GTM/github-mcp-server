@@ -226,44 +226,17 @@ func generateToolDoc(tool mcp.Tool) string {
 	// Parameters
 	schema := tool.InputSchema
 	if len(schema.Properties) > 0 {
-		// Get parameter names and sort them for deterministic order
-		var paramNames []string
-		for propName := range schema.Properties {
-			paramNames = append(paramNames, propName)
-		}
-		sort.Strings(paramNames)
+		paramNames := sortedKeys(schema.Properties)
 
 		for _, propName := range paramNames {
 			prop := schema.Properties[propName]
-			required := contains(schema.Required, propName)
 			requiredStr := "optional"
-			if required {
+			if contains(schema.Required, propName) {
 				requiredStr = "required"
 			}
 
-			// Get the type and description
-			typeStr := "unknown"
-			description := ""
-
-			if propMap, ok := prop.(map[string]interface{}); ok {
-				if typeVal, ok := propMap["type"].(string); ok {
-					if typeVal == "array" {
-						if items, ok := propMap["items"].(map[string]interface{}); ok {
-							if itemType, ok := items["type"].(string); ok {
-								typeStr = itemType + "[]"
-							}
-						} else {
-							typeStr = "array"
-						}
-					} else {
-						typeStr = typeVal
-					}
-				}
-
-				if desc, ok := propMap["description"].(string); ok {
-					description = desc
-				}
-			}
+			typeStr := extractPropertyType(prop)
+			description := extractPropertyDescription(prop)
 
 			paramLine := fmt.Sprintf("  - `%s`: %s (%s, %s)", propName, description, typeStr, requiredStr)
 			lines = append(lines, paramLine)
@@ -273,6 +246,65 @@ func generateToolDoc(tool mcp.Tool) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// sortedKeys returns the keys of a map sorted alphabetically.
+func sortedKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// extractPropertyType extracts the type string from a JSON schema property.
+func extractPropertyType(prop interface{}) string {
+	propMap, ok := prop.(map[string]interface{})
+	if !ok {
+		return "unknown"
+	}
+
+	typeVal, ok := propMap["type"].(string)
+	if !ok {
+		return "unknown"
+	}
+
+	if typeVal != "array" {
+		return typeVal
+	}
+
+	return extractArrayItemType(propMap)
+}
+
+// extractArrayItemType extracts the item type for an array property.
+func extractArrayItemType(propMap map[string]interface{}) string {
+	items, ok := propMap["items"].(map[string]interface{})
+	if !ok {
+		return "array"
+	}
+
+	itemType, ok := items["type"].(string)
+	if !ok {
+		return "unknown"
+	}
+
+	return itemType + "[]"
+}
+
+// extractPropertyDescription extracts the description from a JSON schema property.
+func extractPropertyDescription(prop interface{}) string {
+	propMap, ok := prop.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	desc, ok := propMap["description"].(string)
+	if !ok {
+		return ""
+	}
+
+	return desc
 }
 
 func contains(slice []string, item string) bool {
