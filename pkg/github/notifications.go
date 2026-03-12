@@ -22,6 +22,94 @@ const (
 	FilterOnlyParticipating = "only_participating"
 )
 
+// listNotificationsParams holds the parsed parameters for listing notifications.
+type listNotificationsParams struct {
+	filter  string
+	since   string
+	before  string
+	owner   string
+	repo    string
+	page    int
+	perPage int
+}
+
+// parseListNotificationsParams extracts and validates all parameters from the request.
+func parseListNotificationsParams(request mcp.CallToolRequest) (*listNotificationsParams, error) {
+	filter, err := OptionalParam[string](request, "filter")
+	if err != nil {
+		return nil, err
+	}
+	since, err := OptionalParam[string](request, "since")
+	if err != nil {
+		return nil, err
+	}
+	before, err := OptionalParam[string](request, "before")
+	if err != nil {
+		return nil, err
+	}
+	owner, err := OptionalParam[string](request, "owner")
+	if err != nil {
+		return nil, err
+	}
+	repo, err := OptionalParam[string](request, "repo")
+	if err != nil {
+		return nil, err
+	}
+	paginationParams, err := OptionalPaginationParams(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &listNotificationsParams{
+		filter:  filter,
+		since:   since,
+		before:  before,
+		owner:   owner,
+		repo:    repo,
+		page:    paginationParams.page,
+		perPage: paginationParams.perPage,
+	}, nil
+}
+
+// buildNotificationListOptions constructs the GitHub API options from parsed parameters.
+func buildNotificationListOptions(params *listNotificationsParams) (*github.NotificationListOptions, error) {
+	opts := &github.NotificationListOptions{
+		All:           params.filter == FilterIncludeRead,
+		Participating: params.filter == FilterOnlyParticipating,
+		ListOptions: github.ListOptions{
+			Page:    params.page,
+			PerPage: params.perPage,
+		},
+	}
+
+	if params.since != "" {
+		sinceTime, err := time.Parse(time.RFC3339, params.since)
+		if err != nil {
+			return nil, fmt.Errorf("invalid since time format, should be RFC3339/ISO8601: %v", err)
+		}
+		opts.Since = sinceTime
+	}
+
+	if params.before != "" {
+		beforeTime, err := time.Parse(time.RFC3339, params.before)
+		if err != nil {
+			return nil, fmt.Errorf("invalid before time format, should be RFC3339/ISO8601: %v", err)
+		}
+		opts.Before = beforeTime
+	}
+
+	return opts, nil
+}
+
+// fetchNotifications calls the appropriate GitHub API endpoint based on whether
+// owner and repo are provided.
+func fetchNotifications(ctx context.Context, client *github.Client, params *listNotificationsParams, opts *github.NotificationListOptions) ([]*github.Notification, *github.Response, error) {
+	if params.owner != "" && params.repo != "" {
+		return client.Activity.ListRepositoryNotifications(ctx, params.owner, params.repo, opts)
+	}
+	return client.Activity.ListNotifications(ctx, opts)
+}
+
 // ListNotifications creates a tool to list notifications for the current user.
 func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_notifications",
@@ -54,70 +142,17 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
 			}
 
-			filter, err := OptionalParam[string](request, "filter")
+			params, err := parseListNotificationsParams(request)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			since, err := OptionalParam[string](request, "since")
+			opts, err := buildNotificationListOptions(params)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			before, err := OptionalParam[string](request, "before")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			owner, err := OptionalParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := OptionalParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			paginationParams, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-
-			// Build options
-			opts := &github.NotificationListOptions{
-				All:           filter == FilterIncludeRead,
-				Participating: filter == FilterOnlyParticipating,
-				ListOptions: github.ListOptions{
-					Page:    paginationParams.page,
-					PerPage: paginationParams.perPage,
-				},
-			}
-
-			// Parse time parameters if provided
-			if since != "" {
-				sinceTime, err := time.Parse(time.RFC3339, since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid since time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Since = sinceTime
-			}
-
-			if before != "" {
-				beforeTime, err := time.Parse(time.RFC3339, before)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid before time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Before = beforeTime
-			}
-
-			var notifications []*github.Notification
-			var resp *github.Response
-
-			if owner != "" && repo != "" {
-				notifications, resp, err = client.Activity.ListRepositoryNotifications(ctx, owner, repo, opts)
-			} else {
-				notifications, resp, err = client.Activity.ListNotifications(ctx, opts)
-			}
+			notifications, resp, err := fetchNotifications(ctx, client, params, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to list notifications",
@@ -135,7 +170,6 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
 			}
 
-			// Marshal response to JSON
 			r, err := json.Marshal(notifications)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal response: %w", err)
