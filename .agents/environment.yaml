@@ -1,0 +1,34 @@
+# See spec at https://docs.devin.ai/onboard-devin/repo-setup
+initialize: |
+  # Install Go 1.23.7
+  wget -q https://go.dev/dl/go1.23.7.linux-amd64.tar.gz -O /tmp/go.tar.gz
+  sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+  rm /tmp/go.tar.gz
+  export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+  # Install golangci-lint v2.2.1
+  curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.2.1
+maintenance: |
+  export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+  go mod download
+knowledge:
+  - name: lint
+    contents: |
+      # Lint with golangci-lint (also runs gofmt)
+      export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+      golangci-lint run
+      # Or use the repo script:
+      bash script/lint
+  - name: test
+    contents: |
+      # Run tests with race detector
+      export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+      go test -race ./...
+      # Or use the repo script:
+      bash script/test
+  - name: startup
+    contents: |
+      # Build the server binary
+      export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+      go build -o ./bin/github-mcp-server ./cmd/github-mcp-server
+      # Run the server (requires GITHUB_PERSONAL_ACCESS_TOKEN env var)
+      GITHUB_PERSONAL_ACCESS_TOKEN=<token> ./bin/github-mcp-server stdio
