@@ -434,6 +434,23 @@ const (
 	RepositorySubscriptionActionDelete = "delete"
 )
 
+// executeRepoSubscriptionAction performs the requested subscription action and returns the result, response, and any error.
+func executeRepoSubscriptionAction(ctx context.Context, client *github.Client, owner, repo, action string) (any, *github.Response, error) {
+	switch action {
+	case RepositorySubscriptionActionIgnore:
+		sub := &github.Subscription{Ignored: ToBoolPtr(true)}
+		return client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
+	case RepositorySubscriptionActionWatch:
+		sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
+		return client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
+	case RepositorySubscriptionActionDelete:
+		resp, err := client.Activity.DeleteRepositorySubscription(ctx, owner, repo)
+		return nil, resp, err
+	default:
+		return nil, nil, fmt.Errorf("Invalid action. Must be one of: ignore, watch, delete.")
+	}
+}
+
 // ManageRepositoryNotificationSubscription creates a tool to manage a repository notification subscription (ignore, watch, delete)
 func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("manage_repository_notification_subscription",
@@ -475,25 +492,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var (
-				resp   *github.Response
-				result any
-				apiErr error
-			)
-
-			switch action {
-			case RepositorySubscriptionActionIgnore:
-				sub := &github.Subscription{Ignored: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
-			case RepositorySubscriptionActionWatch:
-				sub := &github.Subscription{Ignored: ToBoolPtr(false), Subscribed: ToBoolPtr(true)}
-				result, resp, apiErr = client.Activity.SetRepositorySubscription(ctx, owner, repo, sub)
-			case RepositorySubscriptionActionDelete:
-				resp, apiErr = client.Activity.DeleteRepositorySubscription(ctx, owner, repo)
-			default:
-				return mcp.NewToolResultError("Invalid action. Must be one of: ignore, watch, delete."), nil
-			}
-
+			result, resp, apiErr := executeRepoSubscriptionAction(ctx, client, owner, repo, action)
 			if apiErr != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					fmt.Sprintf("failed to %s repository subscription", action),
@@ -505,14 +504,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				defer func() { _ = resp.Body.Close() }()
 			}
 
-			// Handle non-2xx status codes
-			if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-				body, _ := io.ReadAll(resp.Body)
-				return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
-			}
-
 			if action == RepositorySubscriptionActionDelete {
-				// Special case for delete as there is no response body
 				return mcp.NewToolResultText("Repository subscription deleted"), nil
 			}
 
