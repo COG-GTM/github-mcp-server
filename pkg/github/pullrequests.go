@@ -600,57 +600,63 @@ func GetPullRequestFiles(getClient GetClientFn, t translations.TranslationHelper
 			),
 			WithPagination(),
 		),
-		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-			owner, err := RequiredParam[string](request, "owner")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			repo, err := RequiredParam[string](request, "repo")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pullNumber, err := RequiredInt(request, "pullNumber")
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
-			pagination, err := OptionalPaginationParams(request)
-			if err != nil {
-				return mcp.NewToolResultError(err.Error()), nil
-			}
+		handleGetPullRequestFiles(getClient)
+}
 
-			client, err := getClient(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
-			}
-			opts := &github.ListOptions{
-				PerPage: pagination.perPage,
-				Page:    pagination.page,
-			}
-			files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
-			if err != nil {
-				return ghErrors.NewGitHubAPIErrorResponse(ctx,
-					"failed to get pull request files",
-					resp,
-					err,
-				), nil
-			}
-			defer func() { _ = resp.Body.Close() }()
-
-			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
-			}
-
-			r, err := json.Marshal(files)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
-			}
-
-			return mcp.NewToolResultText(string(r)), nil
+// handleGetPullRequestFiles returns the handler function for GetPullRequestFiles,
+// extracted to reduce cognitive complexity of the outer function.
+func handleGetPullRequestFiles(getClient GetClientFn) server.ToolHandlerFunc {
+	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		owner, err := RequiredParam[string](request, "owner")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
 		}
+		repo, err := RequiredParam[string](request, "repo")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		pullNumber, err := RequiredInt(request, "pullNumber")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		pagination, err := OptionalPaginationParams(request)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+
+		client, err := getClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+		}
+		opts := &github.ListOptions{
+			PerPage: pagination.perPage,
+			Page:    pagination.page,
+		}
+		files, resp, err := client.PullRequests.ListFiles(ctx, owner, repo, pullNumber, opts)
+		if err != nil {
+			return ghErrors.NewGitHubAPIErrorResponse(ctx,
+				"failed to get pull request files",
+				resp,
+				err,
+			), nil
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read response body: %w", err)
+			}
+			return mcp.NewToolResultError(fmt.Sprintf("failed to get pull request files: %s", string(body))), nil
+		}
+
+		r, err := json.Marshal(files)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal response: %w", err)
+		}
+
+		return mcp.NewToolResultText(string(r)), nil
+	}
 }
 
 // GetPullRequestStatus creates a tool to get the combined status of all status checks for a pull request.
