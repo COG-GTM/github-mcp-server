@@ -748,7 +748,7 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 
 	if returnContent {
 		// Download and return the actual log content
-		content, originalLength, httpResp, err := downloadLogContent(url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
+		content, originalLength, httpResp, err := downloadLogContent(ctx, url.String(), tailLines) //nolint:bodyclose // Response body is closed in downloadLogContent, but we need to return httpResp
 		if err != nil {
 			// To keep the return value consistent wrap the response as a GitHub Response
 			ghRes := &github.Response{
@@ -770,8 +770,12 @@ func getJobLogData(ctx context.Context, client *github.Client, owner, repo strin
 }
 
 // downloadLogContent downloads the actual log content from a GitHub logs URL
-func downloadLogContent(logURL string, tailLines int) (string, int, *http.Response, error) {
-	httpResp, err := http.Get(logURL) //nolint:gosec // URLs are provided by GitHub API and are safe
+func downloadLogContent(ctx context.Context, logURL string, tailLines int) (string, int, *http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, logURL, nil)
+	if err != nil {
+		return "", 0, nil, fmt.Errorf("failed to create log download request: %w", err)
+	}
+	httpResp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", 0, httpResp, fmt.Errorf("failed to download logs: %w", err)
 	}

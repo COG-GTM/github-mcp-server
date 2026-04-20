@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -73,8 +74,8 @@ func generateReadmeDocs(readmePath string) error {
 	toolsDoc := generateToolsDoc(tsg)
 
 	// Read the current README.md
-	// #nosec G304 - readmePath is controlled by command line flag, not user input
-	content, err := os.ReadFile(readmePath)
+	cleanReadmePath := filepath.Clean(readmePath)
+	content, err := os.ReadFile(cleanReadmePath) //#nosec G304 -- path is controlled by CLI flag
 	if err != nil {
 		return fmt.Errorf("failed to read README.md: %w", err)
 	}
@@ -86,7 +87,7 @@ func generateReadmeDocs(readmePath string) error {
 	updatedContent = replaceSection(updatedContent, "START AUTOMATED TOOLS", "END AUTOMATED TOOLS", toolsDoc)
 
 	// Write back to file
-	err = os.WriteFile(readmePath, []byte(updatedContent), 0600)
+	err = os.WriteFile(cleanReadmePath, []byte(updatedContent), 0600) //nolint:gosec // G703: path is sanitized and controlled by CLI flag
 	if err != nil {
 		return fmt.Errorf("failed to write README.md: %w", err)
 	}
@@ -96,7 +97,8 @@ func generateReadmeDocs(readmePath string) error {
 }
 
 func generateRemoteServerDocs(docsPath string) error {
-	content, err := os.ReadFile(docsPath) //#nosec G304
+	cleanDocsPath := filepath.Clean(docsPath)
+	content, err := os.ReadFile(cleanDocsPath) //#nosec G304 -- path is controlled by CLI flag
 	if err != nil {
 		return fmt.Errorf("failed to read docs file: %w", err)
 	}
@@ -117,7 +119,7 @@ func generateRemoteServerDocs(docsPath string) error {
 
 	newContent := contentStr[:startIndex] + startMarker + "\n" + toolsetsDoc + "\n" + endMarker + contentStr[endIndex+len(endMarker):]
 
-	return os.WriteFile(docsPath, []byte(newContent), 0600) //#nosec G306
+	return os.WriteFile(cleanDocsPath, []byte(newContent), 0600) //nolint:gosec // G306,G703: path is sanitized and controlled by CLI flag
 }
 
 func generateToolsetsDoc(tsg *toolsets.ToolsetGroup) string {
@@ -340,14 +342,14 @@ func generateRemoteToolsetsDoc() string {
 		installLink := fmt.Sprintf("[Install](https://insiders.vscode.dev/redirect/mcp/install?name=gh-%s&config=%s)", name, installConfig)
 		readonlyInstallLink := fmt.Sprintf("[Install read-only](https://insiders.vscode.dev/redirect/mcp/install?name=gh-%s&config=%s)", name, readonlyConfig)
 
-		buf.WriteString(fmt.Sprintf("| %-14s | %-48s | %-53s | %-218s | %-110s | %-288s |\n",
+		fmt.Fprintf(&buf, "| %-14s | %-48s | %-53s | %-218s | %-110s | %-288s |\n",
 			formattedName,
 			description,
 			apiURL,
 			installLink,
 			fmt.Sprintf("[read-only](%s)", readonlyURL),
 			readonlyInstallLink,
-		))
+		)
 	}
 
 	return buf.String()
