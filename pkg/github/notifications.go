@@ -411,7 +411,10 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-				body, _ := io.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, fmt.Errorf("failed to read response body: %w", err)
+				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
 			}
 
@@ -507,7 +510,10 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 
 			// Handle non-2xx status codes
 			if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-				body, _ := io.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					return nil, fmt.Errorf("failed to read response body: %w", err)
+				}
 				return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
 			}
 
