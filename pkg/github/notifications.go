@@ -121,6 +121,22 @@ func marshalToolResult(v any) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(string(r)), nil
 }
 
+// checkNon2xxAndClose closes resp.Body (if resp is non-nil) and, when the
+// status code is outside the 2xx range, returns a tool error result whose
+// message is "<prefix>: <body>". Returns nil when resp is nil or the status
+// is 2xx. The body is closed before returning in both cases.
+func checkNon2xxAndClose(resp *github.Response, prefix string) *mcp.CallToolResult {
+	if resp == nil {
+		return nil
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		return mcp.NewToolResultError(fmt.Sprintf("%s: %s", prefix, string(body)))
+	}
+	return nil
+}
+
 // ListNotifications creates a tool to list notifications for the current user.
 func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_notifications",
@@ -431,11 +447,9 @@ func manageNotificationSubscriptionHandler(getClient GetClientFn) server.ToolHan
 				apiErr,
 			), nil
 		}
-		defer func() { _ = resp.Body.Close() }()
 
-		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			body, _ := io.ReadAll(resp.Body)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to %s notification subscription: %s", action, string(body))), nil
+		if errResult := checkNon2xxAndClose(resp, fmt.Sprintf("failed to %s notification subscription", action)); errResult != nil {
+			return errResult, nil
 		}
 
 		if action == NotificationActionDelete {
@@ -514,13 +528,9 @@ func manageRepositoryNotificationSubscriptionHandler(getClient GetClientFn) serv
 				apiErr,
 			), nil
 		}
-		if resp != nil {
-			defer func() { _ = resp.Body.Close() }()
-		}
 
-		if resp != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-			body, _ := io.ReadAll(resp.Body)
-			return mcp.NewToolResultError(fmt.Sprintf("failed to %s repository subscription: %s", action, string(body))), nil
+		if errResult := checkNon2xxAndClose(resp, fmt.Sprintf("failed to %s repository subscription", action)); errResult != nil {
+			return errResult, nil
 		}
 
 		if action == RepositorySubscriptionActionDelete {
