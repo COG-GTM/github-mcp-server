@@ -217,59 +217,71 @@ func formatToolsetName(name string) string {
 	}
 }
 
+// extractPropertyType determines the type string for a schema property map.
+func extractPropertyType(propMap map[string]interface{}) string {
+	typeVal, ok := propMap["type"].(string)
+	if !ok {
+		return "unknown"
+	}
+	if typeVal != "array" {
+		return typeVal
+	}
+	items, ok := propMap["items"].(map[string]interface{})
+	if !ok {
+		return "array"
+	}
+	itemType, ok := items["type"].(string)
+	if !ok {
+		return "unknown"
+	}
+	return itemType + "[]"
+}
+
+// extractPropertyDescription returns the description string from a schema property map.
+func extractPropertyDescription(propMap map[string]interface{}) string {
+	desc, _ := propMap["description"].(string)
+	return desc
+}
+
+// formatParamLine formats a single parameter's documentation line.
+func formatParamLine(propName string, prop interface{}, required bool) string {
+	requiredStr := "optional"
+	if required {
+		requiredStr = "required"
+	}
+
+	typeStr := "unknown"
+	description := ""
+
+	if propMap, ok := prop.(map[string]interface{}); ok {
+		typeStr = extractPropertyType(propMap)
+		description = extractPropertyDescription(propMap)
+	}
+
+	return fmt.Sprintf("  - `%s`: %s (%s, %s)", propName, description, typeStr, requiredStr)
+}
+
 func generateToolDoc(tool mcp.Tool) string {
 	var lines []string
 
-	// Tool name only (using annotation name instead of verbose description)
 	lines = append(lines, fmt.Sprintf("- **%s** - %s", tool.Name, tool.Annotations.Title))
 
-	// Parameters
 	schema := tool.InputSchema
-	if len(schema.Properties) > 0 {
-		// Get parameter names and sort them for deterministic order
-		var paramNames []string
-		for propName := range schema.Properties {
-			paramNames = append(paramNames, propName)
-		}
-		sort.Strings(paramNames)
-
-		for _, propName := range paramNames {
-			prop := schema.Properties[propName]
-			required := contains(schema.Required, propName)
-			requiredStr := "optional"
-			if required {
-				requiredStr = "required"
-			}
-
-			// Get the type and description
-			typeStr := "unknown"
-			description := ""
-
-			if propMap, ok := prop.(map[string]interface{}); ok {
-				if typeVal, ok := propMap["type"].(string); ok {
-					if typeVal == "array" {
-						if items, ok := propMap["items"].(map[string]interface{}); ok {
-							if itemType, ok := items["type"].(string); ok {
-								typeStr = itemType + "[]"
-							}
-						} else {
-							typeStr = "array"
-						}
-					} else {
-						typeStr = typeVal
-					}
-				}
-
-				if desc, ok := propMap["description"].(string); ok {
-					description = desc
-				}
-			}
-
-			paramLine := fmt.Sprintf("  - `%s`: %s (%s, %s)", propName, description, typeStr, requiredStr)
-			lines = append(lines, paramLine)
-		}
-	} else {
+	if len(schema.Properties) == 0 {
 		lines = append(lines, "  - No parameters required")
+		return strings.Join(lines, "\n")
+	}
+
+	var paramNames []string
+	for propName := range schema.Properties {
+		paramNames = append(paramNames, propName)
+	}
+	sort.Strings(paramNames)
+
+	for _, propName := range paramNames {
+		prop := schema.Properties[propName]
+		required := contains(schema.Required, propName)
+		lines = append(lines, formatParamLine(propName, prop, required))
 	}
 
 	return strings.Join(lines, "\n")
