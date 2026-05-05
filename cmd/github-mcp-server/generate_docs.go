@@ -232,7 +232,7 @@ func extractPropertyType(propMap map[string]interface{}) string {
 	}
 	itemType, ok := items["type"].(string)
 	if !ok {
-		return "array"
+		return "unknown"
 	}
 	return itemType + "[]"
 }
