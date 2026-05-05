@@ -168,6 +168,43 @@ type MinimalSearchUsersResult struct {
 	Items             []MinimalUser `json:"items"`
 }
 
+// toMinimalUser converts a github.User to a MinimalUser, extracting non-nil fields.
+func toMinimalUser(user *github.User) MinimalUser {
+	mu := MinimalUser{Login: user.GetLogin()}
+	if user.ID != nil {
+		mu.ID = *user.ID
+	}
+	if user.HTMLURL != nil {
+		mu.ProfileURL = *user.HTMLURL
+	}
+	if user.AvatarURL != nil {
+		mu.AvatarURL = *user.AvatarURL
+	}
+	return mu
+}
+
+// convertUsersToMinimal converts a slice of github.User to a slice of MinimalUser,
+// filtering out users without a login.
+func convertUsersToMinimal(users []*github.User) []MinimalUser {
+	result := make([]MinimalUser, 0, len(users))
+	for _, user := range users {
+		if user.GetLogin() != "" {
+			result = append(result, toMinimalUser(user))
+		}
+	}
+	return result
+}
+
+// buildMinimalSearchResult constructs a MinimalSearchUsersResult from search results.
+func buildMinimalSearchResult(searchResult *github.UsersSearchResult, users []MinimalUser) *MinimalSearchUsersResult {
+	resp := &MinimalSearchUsersResult{
+		TotalCount:        searchResult.GetTotal(),
+		IncompleteResults: searchResult.GetIncompleteResults(),
+		Items:             users,
+	}
+	return resp
+}
+
 func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHandlerFunc {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		query, err := RequiredParam[string](request, "query")
@@ -220,34 +257,8 @@ func userOrOrgHandler(accountType string, getClient GetClientFn) server.ToolHand
 			return mcp.NewToolResultError(fmt.Sprintf("failed to search %ss: %s", accountType, string(body))), nil
 		}
 
-		minimalUsers := make([]MinimalUser, 0, len(result.Users))
-
-		for _, user := range result.Users {
-			if user.Login != nil {
-				mu := MinimalUser{Login: *user.Login}
-				if user.ID != nil {
-					mu.ID = *user.ID
-				}
-				if user.HTMLURL != nil {
-					mu.ProfileURL = *user.HTMLURL
-				}
-				if user.AvatarURL != nil {
-					mu.AvatarURL = *user.AvatarURL
-				}
-				minimalUsers = append(minimalUsers, mu)
-			}
-		}
-		minimalResp := &MinimalSearchUsersResult{
-			TotalCount:        result.GetTotal(),
-			IncompleteResults: result.GetIncompleteResults(),
-			Items:             minimalUsers,
-		}
-		if result.Total != nil {
-			minimalResp.TotalCount = *result.Total
-		}
-		if result.IncompleteResults != nil {
-			minimalResp.IncompleteResults = *result.IncompleteResults
-		}
+		minimalUsers := convertUsersToMinimal(result.Users)
+		minimalResp := buildMinimalSearchResult(result, minimalUsers)
 
 		r, err := json.Marshal(minimalResp)
 		if err != nil {
