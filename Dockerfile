@@ -22,6 +22,8 @@ FROM gcr.io/distroless/base-debian12
 WORKDIR /server
 # Copy the binary from the build stage
 COPY --from=build /bin/github-mcp-server .
+# Run as non-root user for security (distroless includes nonroot user at UID 65532)
+USER nonroot
 # Set the entrypoint to the server binary
 ENTRYPOINT ["/server/github-mcp-server"]
 # Default arguments for ENTRYPOINT
