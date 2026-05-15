@@ -73,11 +73,20 @@ func getRESTClient(t *testing.T) *gogithub.Client {
 	return ghClient
 }
 
+// dockerBinaryPath resolves the absolute path to the docker binary.
+// Using an absolute path avoids security issues with PATH lookup (CWE-426, CWE-427).
+func dockerBinaryPath(t *testing.T) string {
+	t.Helper()
+	dockerPath, err := exec.LookPath("docker")
+	require.NoError(t, err, "docker binary not found in PATH")
+	return dockerPath
+}
+
 // ensureDockerImageBuilt makes sure the Docker image is built only once across all tests
 func ensureDockerImageBuilt(t *testing.T) {
 	buildOnce.Do(func() {
 		t.Log("Building Docker image for e2e tests...")
-		cmd := exec.Command("docker", "build", "-t", "github/e2e-github-mcp-server", ".")
+		cmd := exec.Command(dockerBinaryPath(t), "build", "-t", "github/e2e-github-mcp-server", ".") //nolint:gosec // resolved to absolute path via LookPath
 		cmd.Dir = ".." // Run this in the context of the root, where the Dockerfile is located.
 		output, err := cmd.CombinedOutput()
 		buildError = err
@@ -125,9 +134,9 @@ func setupMCPClient(t *testing.T, options ...clientOption) *mcpClient.Client {
 	if os.Getenv("GITHUB_MCP_SERVER_E2E_DEBUG") == "" {
 		ensureDockerImageBuilt(t)
 
-		// Prepare Docker arguments
+		// Prepare Docker arguments using absolute path to avoid PATH lookup security issues (CWE-426, CWE-427)
 		args := []string{
-			"docker",
+			dockerBinaryPath(t),
 			"run",
 			"-i",
 			"--rm",
