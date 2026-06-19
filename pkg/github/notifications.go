@@ -22,6 +22,79 @@ const (
 	FilterOnlyParticipating = "only_participating"
 )
 
+// Parameter names shared across the notification tools.
+const (
+	ownerParam          = "owner"
+	actionParam         = "action"
+	notificationIDParam = "notificationID"
+)
+
+// Error message formats shared across the notification tools.
+const (
+	errFailedToGetClient       = "failed to get GitHub client: %w"
+	errFailedToReadBody        = "failed to read response body: %w"
+	errFailedToMarshalResponse = "failed to marshal response: %w"
+)
+
+// notificationResponseError reads the body of a failed notifications API
+// response and returns a tool result error describing the failure.
+func notificationResponseError(resp *github.Response, message string) (*mcp.CallToolResult, error) {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf(errFailedToReadBody, err)
+	}
+	return mcp.NewToolResultError(fmt.Sprintf("%s: %s", message, string(body))), nil
+}
+
+// buildNotificationListOptions assembles the notification list options from the
+// provided filter, optional time bounds, and pagination parameters.
+func buildNotificationListOptions(filter, since, before string, pagination PaginationParams) (*github.NotificationListOptions, error) {
+	opts := &github.NotificationListOptions{
+		All:           filter == FilterIncludeRead,
+		Participating: filter == FilterOnlyParticipating,
+		ListOptions: github.ListOptions{
+			Page:    pagination.page,
+			PerPage: pagination.perPage,
+		},
+	}
+
+	if since != "" {
+		sinceTime, err := time.Parse(time.RFC3339, since)
+		if err != nil {
+			return nil, fmt.Errorf("invalid since time format, should be RFC3339/ISO8601: %w", err)
+		}
+		opts.Since = sinceTime
+	}
+
+	if before != "" {
+		beforeTime, err := time.Parse(time.RFC3339, before)
+		if err != nil {
+			return nil, fmt.Errorf("invalid before time format, should be RFC3339/ISO8601: %w", err)
+		}
+		opts.Before = beforeTime
+	}
+
+	return opts, nil
+}
+
+// listNotificationsByScope lists notifications scoped to a single repository
+// when both owner and repo are provided, otherwise across all repositories.
+func listNotificationsByScope(ctx context.Context, client *github.Client, owner, repo string, opts *github.NotificationListOptions) ([]*github.Notification, *github.Response, error) {
+	if owner != "" && repo != "" {
+		return client.Activity.ListRepositoryNotifications(ctx, owner, repo, opts)
+	}
+	return client.Activity.ListNotifications(ctx, opts)
+}
+
+// parseLastReadAt parses the optional lastReadAt timestamp, defaulting to the
+// current time when no value is provided.
+func parseLastReadAt(lastReadAt string) (time.Time, error) {
+	if lastReadAt == "" {
+		return time.Now(), nil
+	}
+	return time.Parse(time.RFC3339, lastReadAt)
+}
+
 // ListNotifications creates a tool to list notifications for the current user.
 func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFunc) (tool mcp.Tool, handler server.ToolHandlerFunc) {
 	return mcp.NewTool("list_notifications",
@@ -40,7 +113,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			mcp.WithString("before",
 				mcp.Description("Only show notifications updated before the given time (ISO 8601 format)"),
 			),
-			mcp.WithString("owner",
+			mcp.WithString(ownerParam,
 				mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are listed."),
 			),
 			mcp.WithString("repo",
@@ -51,7 +124,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
 			filter, err := OptionalParam[string](request, "filter")
@@ -69,7 +142,7 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			owner, err := OptionalParam[string](request, "owner")
+			owner, err := OptionalParam[string](request, ownerParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -83,41 +156,12 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Build options
-			opts := &github.NotificationListOptions{
-				All:           filter == FilterIncludeRead,
-				Participating: filter == FilterOnlyParticipating,
-				ListOptions: github.ListOptions{
-					Page:    paginationParams.page,
-					PerPage: paginationParams.perPage,
-				},
+			opts, err := buildNotificationListOptions(filter, since, before, paginationParams)
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			// Parse time parameters if provided
-			if since != "" {
-				sinceTime, err := time.Parse(time.RFC3339, since)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid since time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Since = sinceTime
-			}
-
-			if before != "" {
-				beforeTime, err := time.Parse(time.RFC3339, before)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid before time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-				opts.Before = beforeTime
-			}
-
-			var notifications []*github.Notification
-			var resp *github.Response
-
-			if owner != "" && repo != "" {
-				notifications, resp, err = client.Activity.ListRepositoryNotifications(ctx, owner, repo, opts)
-			} else {
-				notifications, resp, err = client.Activity.ListNotifications(ctx, opts)
-			}
+			notifications, resp, err := listNotificationsByScope(ctx, client, owner, repo, opts)
 			if err != nil {
 				return ghErrors.NewGitHubAPIErrorResponse(ctx,
 					"failed to list notifications",
@@ -128,17 +172,13 @@ func ListNotifications(getClient GetClientFn, t translations.TranslationHelperFu
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notifications: %s", string(body))), nil
+				return notificationResponseError(resp, "failed to get notifications")
 			}
 
 			// Marshal response to JSON
 			r, err := json.Marshal(notifications)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -162,7 +202,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getclient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
 			threadID, err := RequiredParam[string](request, "threadID")
@@ -201,11 +241,7 @@ func DismissNotification(getclient GetClientFn, t translations.TranslationHelper
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark notification as %s: %s", state, string(body))), nil
+				return notificationResponseError(resp, fmt.Sprintf("failed to mark notification as %s", state))
 			}
 
 			return mcp.NewToolResultText(fmt.Sprintf("Notification marked as %s", state)), nil
@@ -223,7 +259,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 			mcp.WithString("lastReadAt",
 				mcp.Description("Describes the last point that notifications were checked (optional). Default: Now"),
 			),
-			mcp.WithString("owner",
+			mcp.WithString(ownerParam,
 				mcp.Description("Optional repository owner. If provided with repo, only notifications for this repository are marked as read."),
 			),
 			mcp.WithString("repo",
@@ -233,7 +269,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
 			lastReadAt, err := OptionalParam[string](request, "lastReadAt")
@@ -241,7 +277,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			owner, err := OptionalParam[string](request, "owner")
+			owner, err := OptionalParam[string](request, ownerParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -250,14 +286,9 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 
-			var lastReadTime time.Time
-			if lastReadAt != "" {
-				lastReadTime, err = time.Parse(time.RFC3339, lastReadAt)
-				if err != nil {
-					return mcp.NewToolResultError(fmt.Sprintf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)), nil
-				}
-			} else {
-				lastReadTime = time.Now()
+			lastReadTime, err := parseLastReadAt(lastReadAt)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid lastReadAt time format, should be RFC3339/ISO8601: %v", err)), nil
 			}
 
 			markReadOptions := github.Timestamp{
@@ -280,11 +311,7 @@ func MarkAllNotificationsRead(getClient GetClientFn, t translations.TranslationH
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusResetContent && resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to mark all notifications as read: %s", string(body))), nil
+				return notificationResponseError(resp, "failed to mark all notifications as read")
 			}
 
 			return mcp.NewToolResultText("All notifications marked as read"), nil
@@ -299,7 +326,7 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 				Title:        t("TOOL_GET_NOTIFICATION_DETAILS_USER_TITLE", "Get notification details"),
 				ReadOnlyHint: ToBoolPtr(true),
 			}),
-			mcp.WithString("notificationID",
+			mcp.WithString(notificationIDParam,
 				mcp.Required(),
 				mcp.Description("The ID of the notification"),
 			),
@@ -307,10 +334,10 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
-			notificationID, err := RequiredParam[string](request, "notificationID")
+			notificationID, err := RequiredParam[string](request, notificationIDParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -326,16 +353,12 @@ func GetNotificationDetails(getClient GetClientFn, t translations.TranslationHel
 			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
-				body, err := io.ReadAll(resp.Body)
-				if err != nil {
-					return nil, fmt.Errorf("failed to read response body: %w", err)
-				}
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get notification details: %s", string(body))), nil
+				return notificationResponseError(resp, "failed to get notification details")
 			}
 
 			r, err := json.Marshal(thread)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 
 			return mcp.NewToolResultText(string(r)), nil
@@ -357,11 +380,11 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 				Title:        t("TOOL_MANAGE_NOTIFICATION_SUBSCRIPTION_USER_TITLE", "Manage notification subscription"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("notificationID",
+			mcp.WithString(notificationIDParam,
 				mcp.Required(),
 				mcp.Description("The ID of the notification thread."),
 			),
-			mcp.WithString("action",
+			mcp.WithString(actionParam,
 				mcp.Required(),
 				mcp.Description("Action to perform: ignore, watch, or delete the notification subscription."),
 				mcp.Enum(NotificationActionIgnore, NotificationActionWatch, NotificationActionDelete),
@@ -370,14 +393,14 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
-			notificationID, err := RequiredParam[string](request, "notificationID")
+			notificationID, err := RequiredParam[string](request, notificationIDParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			action, err := RequiredParam[string](request, "action")
+			action, err := RequiredParam[string](request, actionParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -422,7 +445,7 @@ func ManageNotificationSubscription(getClient GetClientFn, t translations.Transl
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}
@@ -442,7 +465,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				Title:        t("TOOL_MANAGE_REPOSITORY_NOTIFICATION_SUBSCRIPTION_USER_TITLE", "Manage repository notification subscription"),
 				ReadOnlyHint: ToBoolPtr(false),
 			}),
-			mcp.WithString("owner",
+			mcp.WithString(ownerParam,
 				mcp.Required(),
 				mcp.Description("The account owner of the repository."),
 			),
@@ -450,7 +473,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 				mcp.Required(),
 				mcp.Description("The name of the repository."),
 			),
-			mcp.WithString("action",
+			mcp.WithString(actionParam,
 				mcp.Required(),
 				mcp.Description("Action to perform: ignore, watch, or delete the repository notification subscription."),
 				mcp.Enum(RepositorySubscriptionActionIgnore, RepositorySubscriptionActionWatch, RepositorySubscriptionActionDelete),
@@ -459,10 +482,10 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			client, err := getClient(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get GitHub client: %w", err)
+				return nil, fmt.Errorf(errFailedToGetClient, err)
 			}
 
-			owner, err := RequiredParam[string](request, "owner")
+			owner, err := RequiredParam[string](request, ownerParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -470,7 +493,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
-			action, err := RequiredParam[string](request, "action")
+			action, err := RequiredParam[string](request, actionParam)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
 			}
@@ -518,7 +541,7 @@ func ManageRepositoryNotificationSubscription(getClient GetClientFn, t translati
 
 			r, err := json.Marshal(result)
 			if err != nil {
-				return nil, fmt.Errorf("failed to marshal response: %w", err)
+				return nil, fmt.Errorf(errFailedToMarshalResponse, err)
 			}
 			return mcp.NewToolResultText(string(r)), nil
 		}
