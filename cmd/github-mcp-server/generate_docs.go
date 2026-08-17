@@ -86,6 +86,7 @@ func generateReadmeDocs(readmePath string) error {
 	updatedContent = replaceSection(updatedContent, "START AUTOMATED TOOLS", "END AUTOMATED TOOLS", toolsDoc)
 
 	// Write back to file
+	// #nosec G703 - readmePath is controlled by command line flag, not user input
 	err = os.WriteFile(readmePath, []byte(updatedContent), 0600)
 	if err != nil {
 		return fmt.Errorf("failed to write README.md: %w", err)
@@ -117,7 +118,8 @@ func generateRemoteServerDocs(docsPath string) error {
 
 	newContent := contentStr[:startIndex] + startMarker + "\n" + toolsetsDoc + "\n" + endMarker + contentStr[endIndex+len(endMarker):]
 
-	return os.WriteFile(docsPath, []byte(newContent), 0600) //#nosec G306
+	// #nosec G306,G703 - docsPath is controlled by command line flag, not user input
+	return os.WriteFile(docsPath, []byte(newContent), 0600)
 }
 
 func generateToolsetsDoc(tsg *toolsets.ToolsetGroup) string {
@@ -340,14 +342,14 @@ func generateRemoteToolsetsDoc() string {
 		installLink := fmt.Sprintf("[Install](https://insiders.vscode.dev/redirect/mcp/install?name=gh-%s&config=%s)", name, installConfig)
 		readonlyInstallLink := fmt.Sprintf("[Install read-only](https://insiders.vscode.dev/redirect/mcp/install?name=gh-%s&config=%s)", name, readonlyConfig)
 
-		buf.WriteString(fmt.Sprintf("| %-14s | %-48s | %-53s | %-218s | %-110s | %-288s |\n",
+		fmt.Fprintf(&buf, "| %-14s | %-48s | %-53s | %-218s | %-110s | %-288s |\n",
 			formattedName,
 			description,
 			apiURL,
 			installLink,
 			fmt.Sprintf("[read-only](%s)", readonlyURL),
 			readonlyInstallLink,
-		))
+		)
 	}
 
 	return buf.String()
