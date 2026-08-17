@@ -72,6 +72,7 @@ func GetSecretScanningAlert(getClient GetClientFn, t translations.TranslationHel
 				return mcp.NewToolResultError(fmt.Sprintf("failed to get alert: %s", string(body))), nil
 			}
 
+			// #nosec G117 - returning the alert payload is the purpose of this tool
 			r, err := json.Marshal(alert)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal alert: %w", err)
@@ -153,6 +154,7 @@ func ListSecretScanningAlerts(getClient GetClientFn, t translations.TranslationH
 				return mcp.NewToolResultError(fmt.Sprintf("failed to list alerts: %s", string(body))), nil
 			}
 
+			// #nosec G117 - returning the alert payloads is the purpose of this tool
 			r, err := json.Marshal(alerts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal alerts: %w", err)
