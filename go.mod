@@ -1,6 +1,8 @@
 module github.com/github/github-mcp-server
 
-go 1.26.7
+go 1.23.7
+
+toolchain go1.26.7
 
 require (
 	github.com/google/go-github/v72 v72.0.0
