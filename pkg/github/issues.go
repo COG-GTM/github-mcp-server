@@ -793,7 +793,7 @@ func AssignCopilotToIssue(getGQLClient GetGQLClientFn, t translations.Translatio
 					}
 				}
 
-				if !query.Repository.SuggestedActors.PageInfo.HasNextPage {
+				if copilotAssignee != nil || !query.Repository.SuggestedActors.PageInfo.HasNextPage {
 					break
 				}
 				variables["endCursor"] = githubv4.String(query.Repository.SuggestedActors.PageInfo.EndCursor)

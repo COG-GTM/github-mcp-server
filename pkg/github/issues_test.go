@@ -1331,6 +1331,100 @@ func TestAssignCopilotToIssue(t *testing.T) {
 			),
 		},
 		{
+			name: "stops paginating suggested actors once copilot is found",
+			requestArgs: map[string]any{
+				"owner":       "owner",
+				"repo":        "repo",
+				"issueNumber": float64(123),
+			},
+			// No matcher for a second page: requesting it would fail the test.
+			mockedClient: githubv4mock.NewMockedHTTPClient(
+				githubv4mock.NewQueryMatcher(
+					struct {
+						Repository struct {
+							SuggestedActors struct {
+								Nodes []struct {
+									Bot struct {
+										ID       githubv4.ID
+										Login    githubv4.String
+										TypeName string `graphql:"__typename"`
+									} `graphql:"... on Bot"`
+								}
+								PageInfo struct {
+									HasNextPage bool
+									EndCursor   string
+								}
+							} `graphql:"suggestedActors(first: 100, after: $endCursor, capabilities: CAN_BE_ASSIGNED)"`
+						} `graphql:"repository(owner: $owner, name: $name)"`
+					}{},
+					map[string]any{
+						"owner":     githubv4.String("owner"),
+						"name":      githubv4.String("repo"),
+						"endCursor": (*githubv4.String)(nil),
+					},
+					githubv4mock.DataResponse(map[string]any{
+						"repository": map[string]any{
+							"suggestedActors": map[string]any{
+								"nodes": []any{
+									map[string]any{
+										"id":         githubv4.ID("copilot-swe-agent-id"),
+										"login":      githubv4.String("copilot-swe-agent"),
+										"__typename": "Bot",
+									},
+								},
+								"pageInfo": map[string]any{
+									"hasNextPage": true,
+									"endCursor":   githubv4.String("next-page-cursor"),
+								},
+							},
+						},
+					}),
+				),
+				githubv4mock.NewQueryMatcher(
+					struct {
+						Repository struct {
+							Issue struct {
+								ID        githubv4.ID
+								Assignees struct {
+									Nodes []struct {
+										ID githubv4.ID
+									}
+								} `graphql:"assignees(first: 100)"`
+							} `graphql:"issue(number: $number)"`
+						} `graphql:"repository(owner: $owner, name: $name)"`
+					}{},
+					map[string]any{
+						"owner":  githubv4.String("owner"),
+						"name":   githubv4.String("repo"),
+						"number": githubv4.Int(123),
+					},
+					githubv4mock.DataResponse(map[string]any{
+						"repository": map[string]any{
+							"issue": map[string]any{
+								"id": githubv4.ID("test-issue-id"),
+								"assignees": map[string]any{
+									"nodes": []any{},
+								},
+							},
+						},
+					}),
+				),
+				githubv4mock.NewMutationMatcher(
+					struct {
+						ReplaceActorsForAssignable struct {
+							Typename string `graphql:"__typename"`
+						} `graphql:"replaceActorsForAssignable(input: $input)"`
+					}{},
+					ReplaceActorsForAssignableInput{
+						AssignableID: githubv4.ID("test-issue-id"),
+						ActorIDs:     []githubv4.ID{githubv4.ID("copilot-swe-agent-id")},
+					},
+					nil,
+					githubv4mock.DataResponse(map[string]any{}),
+				),
+			),
+		},
+		{
 			name: "successful assignment when there are existing assignees",
 			requestArgs: map[string]any{
 				"owner":       "owner",
